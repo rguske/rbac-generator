@@ -1,0 +1,5 @@
+backend/bin/
+frontend/node_modules/
+frontend/dist/
+backend/internal/httpapi/static/dist/*
+!backend/internal/httpapi/static/dist/index.html
