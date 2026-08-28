@@ -14,6 +14,7 @@
 - Frontend: React 18 + TypeScript + Vite; PatternFly 6 only (`@patternfly/react-core`, `@patternfly/react-table`, `@patternfly/react-code-editor`, all pinned to major version 6).
 - Single container image; no database; all session state in-memory with TTL.
 - Container build uses Red Hat UBI9 images at every stage: `registry.access.redhat.com/ubi9/nodejs-22` (frontend build), `registry.access.redhat.com/ubi9/go-toolset` (backend build), `registry.access.redhat.com/ubi9/ubi-micro` (runtime).
+- The container image must build and run locally with Podman (`podman build`/`podman run`) — all container commands in this plan and the README use Podman, not Docker.
 - Kubeconfig text is held only in memory for the session and is never written to disk or logged.
 - App login credentials come from env vars `APP_USERNAME` and `APP_PASSWORD_HASH` (bcrypt hash); UI is PatternFly6 `LoginPage`.
 - No edit/delete of existing RBAC resources in v1 — Browse is read-only.
@@ -4665,13 +4666,13 @@ Expected: builds successfully through all three stages.
 
 Run:
 ```bash
-HASH=$(podman run --rm registry.access.redhat.com/ubi9/go-toolset:latest true 2>/dev/null; cd backend && go run ./cmd/hashpw "s3cret")
+HASH=$(cd backend && go run ./cmd/hashpw "s3cret")
 podman run --rm -p 8080:8080 -e APP_USERNAME=admin -e APP_PASSWORD_HASH="$HASH" rbac-generator:latest &
 sleep 2
 curl -sf http://localhost:8080/healthz
 kill %1
 ```
-Expected: `curl` prints `ok` with exit code 0.
+Expected: `curl` prints `ok` with exit code 0. This confirms the image runs correctly under Podman locally (the same command works unmodified in the Kubernetes/OpenShift deployment from Task 23, which also targets a Podman/OCI-compatible runtime).
 
 - [ ] **Step 4: Commit**
 
