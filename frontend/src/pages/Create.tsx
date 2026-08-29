@@ -18,7 +18,7 @@ import { SubjectBuilder } from '../components/SubjectBuilder';
 import { YamlToggle } from '../components/YamlToggle';
 import { createResource, dryRun, getDiscoveryResources, getServiceAccounts } from '../api/client';
 import { isNamespaced, requiresRules, requiresSubjects } from '../types/rbac';
-import type { Kind, RbacResource } from '../types/rbac';
+import type { Kind, RbacResource, DiscoveryResource } from '../types/rbac';
 import { toYaml } from '../lib/yamlSync';
 
 const KIND_OPTIONS: { value: Kind; label: string }[] = [
@@ -35,7 +35,7 @@ interface CreatePageProps {
 export function CreatePage({ connected }: CreatePageProps) {
   const [kind, setKind] = useState<Kind>('roles');
   const [resource, setResource] = useState<RbacResource>({ name: '' });
-  const [catalog, setCatalog] = useState<{ groups: string[]; resources: string[]; verbs: string[] }>({
+  const [catalog, setCatalog] = useState<{ groups: string[]; resources: DiscoveryResource[]; verbs: string[] }>({
     groups: [],
     resources: [],
     verbs: [],
@@ -50,9 +50,18 @@ export function CreatePage({ connected }: CreatePageProps) {
   useEffect(() => {
     getDiscoveryResources()
       .then((data) => {
+        // Discovery can list the same (group, resource) more than once
+        // across API versions (e.g. "apps/v1" and "apps/v1beta1" both
+        // exposing "deployments") — dedupe so the dropdown doesn't show
+        // duplicate options.
+        const byKey = new Map<string, DiscoveryResource>();
+        for (const r of data.resources) {
+          byKey.set(`${r.group}/${r.resource}`, r);
+        }
+        const resources = Array.from(byKey.values());
         setCatalog({
-          groups: Array.from(new Set(data.resources.map((r) => r.group))).sort(),
-          resources: Array.from(new Set(data.resources.map((r) => r.resource))).sort(),
+          groups: Array.from(new Set(resources.map((r) => r.group))).sort(),
+          resources,
           verbs: data.verbs,
         });
         setCatalogWarning(null);
@@ -144,7 +153,7 @@ export function CreatePage({ connected }: CreatePageProps) {
           rules={resource.rules ?? []}
           onChange={(rules) => updateField('rules', rules)}
           groupOptions={catalog.groups}
-          resourceOptions={catalog.resources}
+          resourceCatalog={catalog.resources}
           verbOptions={catalog.verbs}
         />
       )}

@@ -32,6 +32,8 @@ export interface DiscoveryResource {
   resource: string;
   kind: string;
   namespaced: boolean;
+  subResources?: string[];
+  isCustomResource: boolean;
 }
 
 export interface DiscoveryResponse {

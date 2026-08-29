@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { CreatePage } from './Create';
 import * as api from '../api/client';
@@ -56,5 +56,26 @@ describe('CreatePage', () => {
     fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'clusterrolebindings' } });
     expect(screen.queryByTestId('rule-builder')).not.toBeInTheDocument();
     expect(screen.getByTestId('subject-builder')).toBeInTheDocument();
+  });
+
+  it('dedupes discovery resources by group+resource before building the catalog', async () => {
+    const mockGetDiscovery = vi.mocked(api.getDiscoveryResources);
+    mockGetDiscovery.mockReset();
+    mockGetDiscovery.mockResolvedValue({
+      source: 'live',
+      resources: [
+        { group: 'apps', version: 'v1', resource: 'deployments', kind: 'Deployment', namespaced: true, isCustomResource: false },
+        { group: 'apps', version: 'v1beta1', resource: 'deployments', kind: 'Deployment', namespaced: true, isCustomResource: false },
+      ],
+      verbs: ['get'],
+    });
+    render(<CreatePage connected />);
+    // First add a rule so the resources dropdown appears
+    fireEvent.click(screen.getByText('Add rule'));
+    await waitFor(() => expect(mockGetDiscovery).toHaveBeenCalled());
+    // Now the catalog should be loaded, wait a bit more for state to update
+    await waitFor(() => screen.getByLabelText('add-resources'), { timeout: 3000 });
+    const options = within(screen.getByLabelText('add-resources')).getAllByRole('option', { name: 'deployments' });
+    expect(options).toHaveLength(1);
   });
 });

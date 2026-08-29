@@ -2,12 +2,13 @@
 import { useRef, useState } from 'react';
 import { Button, FormSelect, FormSelectOption, TextInput } from '@patternfly/react-core';
 import { MinusCircleIcon, PlusCircleIcon } from '@patternfly/react-icons';
-import type { PolicyRule } from '../types/rbac';
+import type { DiscoveryResource, PolicyRule } from '../types/rbac';
+import { FieldHelp } from './FieldHelp';
 
 interface RuleBuilderProps {
   rules: PolicyRule[];
   onChange: (rules: PolicyRule[]) => void;
-  resourceOptions?: string[];
+  resourceCatalog?: DiscoveryResource[];
   groupOptions?: string[];
   verbOptions?: string[];
 }
@@ -17,9 +18,10 @@ interface ChipMultiSelectProps {
   values: string[];
   options: string[];
   onChange: (values: string[]) => void;
+  helpText?: string;
 }
 
-function ChipMultiSelect({ label, values, options, onChange }: ChipMultiSelectProps) {
+function ChipMultiSelect({ label, values, options, onChange, helpText }: ChipMultiSelectProps) {
   const [pending, setPending] = useState('');
 
   const addValue = (value: string) => {
@@ -35,6 +37,10 @@ function ChipMultiSelect({ label, values, options, onChange }: ChipMultiSelectPr
 
   return (
     <div data-testid={`multiselect-${label}`}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
+        <strong>{label}</strong>
+        {helpText && <FieldHelp label={label}>{helpText}</FieldHelp>}
+      </div>
       <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
         {values.map((value) => (
           <span key={value} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '0 0.25rem' }}>
@@ -74,7 +80,128 @@ function ChipMultiSelect({ label, values, options, onChange }: ChipMultiSelectPr
   );
 }
 
-export function RuleBuilder({ rules, onChange, resourceOptions = [], groupOptions = [], verbOptions = [] }: RuleBuilderProps) {
+interface ResourcePickerProps {
+  values: string[];
+  catalog: DiscoveryResource[];
+  selectedGroups: string[];
+  onChange: (values: string[]) => void;
+}
+
+function ResourcePicker({ values, catalog, selectedGroups, onChange }: ResourcePickerProps) {
+  const [selectedResource, setSelectedResource] = useState('');
+  const [selectedSubResource, setSelectedSubResource] = useState('');
+  const [pending, setPending] = useState('');
+
+  const filtered = selectedGroups.length > 0 ? catalog.filter((entry) => selectedGroups.includes(entry.group)) : catalog;
+  const currentEntry = filtered.find((entry) => entry.resource === selectedResource);
+  const subResourceOptions = currentEntry?.subResources ?? [];
+
+  const addValue = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || values.includes(trimmed)) return;
+    onChange([...values, trimmed]);
+  };
+
+  const removeValue = (value: string) => {
+    onChange(values.filter((v) => v !== value));
+  };
+
+  const handleResourceSelect = (value: string) => {
+    setSelectedResource(value);
+    setSelectedSubResource('');
+  };
+
+  const handlePickerAdd = () => {
+    if (!selectedResource) return;
+    const combined = selectedSubResource ? `${selectedResource}/${selectedSubResource}` : selectedResource;
+    addValue(combined);
+    setSelectedResource('');
+    setSelectedSubResource('');
+  };
+
+  return (
+    <div data-testid="multiselect-resources">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
+        <strong>resources</strong>
+        <FieldHelp label="resources">
+          The resource type(s) this rule applies to, e.g. pods, deployments. Custom-resource (CRD-backed) types are
+          labeled accordingly.
+        </FieldHelp>
+        <span style={{ marginLeft: '0.5rem' }} />
+        <strong>subResource</strong>
+        <FieldHelp label="subResource">
+          Optional. A specific sub-endpoint of the chosen resource, e.g. "log" or "status" for pods. Leave as
+          "— none —" to grant access to the resource itself.
+        </FieldHelp>
+      </div>
+      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+        {values.map((value) => (
+          <span key={value} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '0 0.25rem' }}>
+            {value}
+            <button type="button" aria-label={`remove-resources-${value}`} onClick={() => removeValue(value)}>
+              &times;
+            </button>
+          </span>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+        {filtered.length > 0 && (
+          <FormSelect aria-label="add-resources" value={selectedResource} onChange={(_e, value) => handleResourceSelect(value)}>
+            <FormSelectOption key="" value="" label="Add resource..." />
+            {filtered.map((entry) => (
+              <FormSelectOption
+                key={`${entry.group}/${entry.resource}`}
+                value={entry.resource}
+                label={entry.isCustomResource ? `${entry.resource} (Custom Resource)` : entry.resource}
+              />
+            ))}
+          </FormSelect>
+        )}
+        {selectedResource && subResourceOptions.length > 0 && (
+          <>
+            <span>/</span>
+            <FormSelect aria-label="add-subresource" value={selectedSubResource} onChange={(_e, value) => setSelectedSubResource(value)}>
+              <FormSelectOption key="" value="" label="— none —" />
+              {subResourceOptions.map((sub) => (
+                <FormSelectOption key={sub} value={sub} label={sub} />
+              ))}
+            </FormSelect>
+          </>
+        )}
+        {selectedResource && (
+          <Button variant="secondary" onClick={handlePickerAdd}>
+            Add
+          </Button>
+        )}
+        <TextInput
+          aria-label="custom-resources"
+          placeholder="Custom resources"
+          value={pending}
+          onChange={(_e, value) => setPending(value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addValue(pending);
+              setPending('');
+            }
+          }}
+        />
+        <Button
+          variant="plain"
+          aria-label="add-custom-resources"
+          onClick={() => {
+            addValue(pending);
+            setPending('');
+          }}
+        >
+          <PlusCircleIcon />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export function RuleBuilder({ rules, onChange, resourceCatalog = [], groupOptions = [], verbOptions = [] }: RuleBuilderProps) {
   const objectKeysRef = useRef(new WeakMap<object, number>());
   const nextKeyRef = useRef(0);
 
@@ -104,9 +231,26 @@ export function RuleBuilder({ rules, onChange, resourceOptions = [], groupOption
     <div data-testid="rule-builder">
       {rules.map((rule, index) => (
         <div key={getObjectKey(rule)} data-testid={`rule-row-${index}`} style={{ border: '1px solid #ccc', padding: '0.5rem', marginBottom: '0.5rem' }}>
-          <ChipMultiSelect label="apiGroups" values={rule.apiGroups} options={groupOptions} onChange={(v) => updateRule(index, 'apiGroups', v)} />
-          <ChipMultiSelect label="resources" values={rule.resources} options={resourceOptions} onChange={(v) => updateRule(index, 'resources', v)} />
-          <ChipMultiSelect label="verbs" values={rule.verbs} options={verbOptions} onChange={(v) => updateRule(index, 'verbs', v)} />
+          <ChipMultiSelect
+            label="apiGroups"
+            values={rule.apiGroups}
+            options={groupOptions}
+            onChange={(v) => updateRule(index, 'apiGroups', v)}
+            helpText='The API group(s) this rule applies to. Use the empty/core option for built-ins like pods and services, or a group like "apps" for Deployments.'
+          />
+          <ResourcePicker
+            values={rule.resources}
+            catalog={resourceCatalog}
+            selectedGroups={rule.apiGroups}
+            onChange={(v) => updateRule(index, 'resources', v)}
+          />
+          <ChipMultiSelect
+            label="verbs"
+            values={rule.verbs}
+            options={verbOptions}
+            onChange={(v) => updateRule(index, 'verbs', v)}
+            helpText="The actions this rule allows, e.g. get, list, watch."
+          />
           <Button variant="plain" aria-label={`remove-rule-${index}`} onClick={() => removeRule(index)}>
             <MinusCircleIcon />
           </Button>
