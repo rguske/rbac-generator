@@ -1,4 +1,5 @@
 // frontend/src/components/SubjectBuilder.tsx
+import { useRef, useState } from 'react';
 import { Button, FormSelect, FormSelectOption, TextInput } from '@patternfly/react-core';
 import { MinusCircleIcon, PlusCircleIcon } from '@patternfly/react-icons';
 import type { Subject } from '../types/rbac';
@@ -12,22 +13,27 @@ interface SubjectBuilderProps {
 const KIND_OPTIONS: Subject['kind'][] = ['ServiceAccount', 'User', 'Group'];
 
 export function SubjectBuilder({ subjects, onChange, serviceAccounts }: SubjectBuilderProps) {
+  const nextRowKeyRef = useRef(0);
+  const [rowKeys, setRowKeys] = useState<number[]>(() => subjects.map(() => nextRowKeyRef.current++));
+
   const updateSubject = (index: number, field: keyof Subject, value: string) => {
     onChange(subjects.map((subject, i) => (i === index ? { ...subject, [field]: value } : subject)));
   };
 
   const addSubject = () => {
+    setRowKeys((keys) => [...keys, nextRowKeyRef.current++]);
     onChange([...subjects, { kind: 'ServiceAccount', name: '' }]);
   };
 
   const removeSubject = (index: number) => {
+    setRowKeys((keys) => keys.filter((_, i) => i !== index));
     onChange(subjects.filter((_, i) => i !== index));
   };
 
   return (
     <div data-testid="subject-builder">
       {subjects.map((subject, index) => (
-        <div key={index} data-testid={`subject-row-${index}`} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        <div key={rowKeys[index]} data-testid={`subject-row-${index}`} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
           <FormSelect aria-label={`subject-kind-${index}`} value={subject.kind} onChange={(_e, value) => updateSubject(index, 'kind', value)}>
             {KIND_OPTIONS.map((kind) => (
               <FormSelectOption key={kind} value={kind} label={kind} />
