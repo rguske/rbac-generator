@@ -1,9 +1,14 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type { ReactNode } from 'react';
 import { CreatePage } from './Create';
 import * as api from '../api/client';
 
 vi.mock('../api/client');
+
+vi.mock('../components/FormYamlSplit', () => ({
+  FormYamlSplit: ({ renderForm }: { renderForm: () => ReactNode }) => renderForm(),
+}));
 
 describe('CreatePage', () => {
   beforeEach(() => {

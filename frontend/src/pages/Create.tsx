@@ -15,7 +15,7 @@ import {
 } from '@patternfly/react-core';
 import { RuleBuilder } from '../components/RuleBuilder';
 import { SubjectBuilder } from '../components/SubjectBuilder';
-import { YamlToggle } from '../components/YamlToggle';
+import { FormYamlSplit } from '../components/FormYamlSplit';
 import { createResource, dryRun, getDiscoveryResources, getServiceAccounts } from '../api/client';
 import { isNamespaced, requiresRules, requiresSubjects } from '../types/rbac';
 import type { Kind, RbacResource, DiscoveryResource } from '../types/rbac';
@@ -177,7 +177,7 @@ export function CreatePage({ connected }: CreatePageProps) {
               ))}
             </FormSelect>
           </FormGroup>
-          <YamlToggle
+          <FormYamlSplit
             value={resource}
             onChange={(newResource) => {
               setResource(newResource);
