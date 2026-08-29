@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rbac-generator
+  labels:
+    app: rbac-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rbac-generator
+  template:
+    metadata:
+      labels:
+        app: rbac-generator
+    spec:
+      containers:
+        - name: rbac-generator
+          image: rbac-generator:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: APP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: rbac-generator-credentials
+                  key: APP_USERNAME
+            - name: APP_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: rbac-generator-credentials
+                  key: APP_PASSWORD_HASH
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 20

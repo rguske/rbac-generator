@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: rbac-generator
+  labels:
+    app: rbac-generator
+spec:
+  to:
+    kind: Service
+    name: rbac-generator
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rbac-generator
+  labels:
+    app: rbac-generator
+spec:
+  selector:
+    app: rbac-generator
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
