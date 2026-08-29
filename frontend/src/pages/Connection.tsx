@@ -1,8 +1,26 @@
 // frontend/src/pages/Connection.tsx
 import { useState } from 'react';
-import { ActionGroup, Alert, Button, Card, CardBody, CardTitle, Form, FormGroup, TextArea } from '@patternfly/react-core';
+import {
+  ActionGroup,
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardTitle,
+  FileUpload,
+  Form,
+  FormGroup,
+  TextArea,
+} from '@patternfly/react-core';
+import type { DropEvent } from '@patternfly/react-core';
 import { connect, disconnect } from '../api/client';
 import type { ClusterInfo } from '../types/rbac';
+
+const KUBECONFIG_ACCEPT = {
+  'application/x-yaml': ['.yaml', '.yml'],
+  'text/yaml': ['.yaml', '.yml'],
+  'text/x-yaml': ['.yaml', '.yml'],
+} as const;
 
 interface ConnectionPageProps {
   clusterInfo?: ClusterInfo;
@@ -12,6 +30,8 @@ interface ConnectionPageProps {
 
 export function ConnectionPage({ clusterInfo, onConnected, onDisconnected }: ConnectionPageProps) {
   const [kubeconfig, setKubeconfig] = useState('');
+  const [uploadedFilename, setUploadedFilename] = useState('');
+  const [isFileLoading, setIsFileLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,6 +51,34 @@ export function ConnectionPage({ clusterInfo, onConnected, onDisconnected }: Con
   const handleDisconnect = async () => {
     await disconnect();
     onDisconnected();
+  };
+
+  const handleKubeconfigTextChange = (_event: React.FormEvent<HTMLTextAreaElement>, value: string) => {
+    setKubeconfig(value);
+    if (uploadedFilename) {
+      setUploadedFilename('');
+    }
+  };
+
+  const handleFileInputChange = (_event: DropEvent, file: File) => {
+    setUploadedFilename(file.name);
+    setError(null);
+  };
+
+  const handleFileDataChange = (_event: DropEvent, data: string) => {
+    setKubeconfig(data);
+  };
+
+  const handleFileReadFailed = () => {
+    setError('Failed to read kubeconfig file');
+    setKubeconfig('');
+    setUploadedFilename('');
+  };
+
+  const handleFileClear = () => {
+    setUploadedFilename('');
+    setKubeconfig('');
+    setError(null);
   };
 
   if (clusterInfo) {
@@ -60,9 +108,31 @@ export function ConnectionPage({ clusterInfo, onConnected, onDisconnected }: Con
               id="kubeconfig"
               aria-label="kubeconfig-text"
               value={kubeconfig}
-              onChange={(_e, value) => setKubeconfig(value)}
+              onChange={handleKubeconfigTextChange}
               rows={10}
               placeholder="Paste your kubeconfig YAML here"
+            />
+          </FormGroup>
+          <FormGroup label="Or upload a kubeconfig file" fieldId="kubeconfig-upload">
+            <FileUpload
+              id="kubeconfig-upload"
+              type="text"
+              hideDefaultPreview
+              value=""
+              filename={uploadedFilename}
+              filenamePlaceholder="Drag and drop a .yaml or .yml file, or browse to upload"
+              filenameAriaLabel="Selected kubeconfig file name"
+              browseButtonText="Browse..."
+              aria-label="kubeconfig-file"
+              onFileInputChange={handleFileInputChange}
+              onDataChange={handleFileDataChange}
+              onReadStarted={() => setIsFileLoading(true)}
+              onReadFinished={() => setIsFileLoading(false)}
+              onReadFailed={handleFileReadFailed}
+              onClearClick={handleFileClear}
+              isLoading={isFileLoading}
+              isClearButtonDisabled={!uploadedFilename}
+              dropzoneProps={{ accept: KUBECONFIG_ACCEPT }}
             />
           </FormGroup>
           <ActionGroup>
