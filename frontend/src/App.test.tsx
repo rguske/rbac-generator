@@ -29,4 +29,23 @@ describe('App', () => {
     fireEvent.click(screen.getByText('Create'));
     expect(screen.getByText('Preview & Dry-Run')).toBeInTheDocument();
   });
+
+  it('resets to the Connection view on logout', async () => {
+    vi.spyOn(api, 'getSession').mockResolvedValue({ authenticated: true, connected: false });
+    vi.spyOn(api, 'getDiscoveryResources').mockResolvedValue({ source: 'static', resources: [], verbs: [] });
+    vi.spyOn(api, 'logout').mockResolvedValue(undefined);
+    vi.spyOn(api, 'login').mockResolvedValue({ authenticated: true });
+    render(<App />);
+    await waitFor(() => screen.getByText('Create'));
+
+    fireEvent.click(screen.getByText('Create'));
+    expect(screen.getByText('Preview & Dry-Run')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Log out'));
+    await waitFor(() => expect(screen.getByText('Log in to rbac-generator')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+    await waitFor(() => screen.getByText('Connection'));
+    expect(screen.queryByText('Preview & Dry-Run')).not.toBeInTheDocument();
+  });
 });

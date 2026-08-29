@@ -45,6 +45,7 @@ export function App() {
     await logout();
     setAuthenticated(false);
     setClusterInfo(undefined);
+    setView('connection');
   };
 
   const sidebar = (
