@@ -78,9 +78,9 @@ Base manifests live under `deploy/kustomize/base/` (Deployment, Service, Route).
 On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
 `kustomization.yaml` and add your own `Ingress` instead.
 
-1. Copy `deploy/kustomize/base/secret.example.yaml` to a local, gitignored
-   `secret.yaml` and fill in real values (`APP_PASSWORD_HASH` from
-   `make hash-password`).
+1. Copy `deploy/kustomize/base/secret.example.yaml` to
+   `deploy/kustomize/base/secret.yaml` (already gitignored) and fill in real
+   values (`APP_PASSWORD_HASH` from `make hash-password`).
 2. Apply the secret: `kubectl apply -f deploy/kustomize/base/secret.yaml`
 3. Apply the base: `kubectl apply -k deploy/kustomize/base`
 
