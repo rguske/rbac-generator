@@ -64,6 +64,8 @@ func NewRouter(deps Deps) http.Handler {
 		})
 	}
 
+	r.Handle("/*", staticHandler())
+
 	return r
 }
 
