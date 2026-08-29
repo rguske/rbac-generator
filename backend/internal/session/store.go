@@ -12,10 +12,11 @@ import (
 )
 
 // ClusterInfo describes the cluster a session is currently connected to.
+// JSON tags must stay in sync with frontend/src/types/rbac.ts's ClusterInfo.
 type ClusterInfo struct {
-	Server         string
-	Version        string
-	CurrentContext string
+	Server         string `json:"server"`
+	Version        string `json:"version"`
+	CurrentContext string `json:"currentContext"`
 }
 
 // Session holds all per-user state: app-level auth and an optional

@@ -14,7 +14,7 @@ import { LoginPageContainer } from './pages/Login';
 import { ConnectionPage } from './pages/Connection';
 import { CreatePage } from './pages/Create';
 import { BrowsePage } from './pages/Browse';
-import { getSession, logout } from './api/client';
+import { getSession, logout, UNAUTHORIZED_EVENT } from './api/client';
 import type { ClusterInfo } from './types/rbac';
 
 type View = 'connection' | 'create' | 'browse';
@@ -31,6 +31,20 @@ export function App() {
         setClusterInfo(info.clusterInfo);
       })
       .catch(() => setAuthenticated(false));
+  }, []);
+
+  useEffect(() => {
+    // If the server-side session expires (TTL janitor) while this tab still
+    // believes it's authenticated, any subsequent API call gets a 401; fall
+    // back to the Login page instead of leaving the user stuck on a page
+    // that silently keeps failing.
+    const handleUnauthorized = () => {
+      setAuthenticated(false);
+      setClusterInfo(undefined);
+      setView('connection');
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized);
   }, []);
 
   if (authenticated === null) {

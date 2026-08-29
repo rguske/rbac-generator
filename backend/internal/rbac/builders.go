@@ -127,3 +127,68 @@ func buildSubjects(inputs []SubjectInput) ([]rbacv1.Subject, error) {
 	}
 	return subjects, nil
 }
+
+// ResourceResponse is the flat shape returned by List/Get, matching the
+// frontend's RbacResource type field-for-field (see frontend/src/types/rbac.ts).
+type ResourceResponse = CreateRequest
+
+// RoleToResource converts a live rbacv1.Role back into the flat response
+// shape the frontend expects, mirroring what BuildRole constructs.
+func RoleToResource(obj *rbacv1.Role) ResourceResponse {
+	return ResourceResponse{
+		Name:      obj.Name,
+		Namespace: obj.Namespace,
+		Rules:     policyRulesToInputs(obj.Rules),
+	}
+}
+
+// ClusterRoleToResource converts a live rbacv1.ClusterRole back into the
+// flat response shape the frontend expects.
+func ClusterRoleToResource(obj *rbacv1.ClusterRole) ResourceResponse {
+	return ResourceResponse{
+		Name:  obj.Name,
+		Rules: policyRulesToInputs(obj.Rules),
+	}
+}
+
+// RoleBindingToResource converts a live rbacv1.RoleBinding back into the
+// flat response shape the frontend expects.
+func RoleBindingToResource(obj *rbacv1.RoleBinding) ResourceResponse {
+	return ResourceResponse{
+		Name:      obj.Name,
+		Namespace: obj.Namespace,
+		Subjects:  subjectsToInputs(obj.Subjects),
+		RoleRef:   &RoleRefInput{Kind: obj.RoleRef.Kind, Name: obj.RoleRef.Name},
+	}
+}
+
+// ClusterRoleBindingToResource converts a live rbacv1.ClusterRoleBinding
+// back into the flat response shape the frontend expects.
+func ClusterRoleBindingToResource(obj *rbacv1.ClusterRoleBinding) ResourceResponse {
+	return ResourceResponse{
+		Name:     obj.Name,
+		Subjects: subjectsToInputs(obj.Subjects),
+		RoleRef:  &RoleRefInput{Kind: obj.RoleRef.Kind, Name: obj.RoleRef.Name},
+	}
+}
+
+func policyRulesToInputs(rules []rbacv1.PolicyRule) []PolicyRuleInput {
+	out := make([]PolicyRuleInput, 0, len(rules))
+	for _, r := range rules {
+		out = append(out, PolicyRuleInput{
+			APIGroups:     r.APIGroups,
+			Resources:     r.Resources,
+			Verbs:         r.Verbs,
+			ResourceNames: r.ResourceNames,
+		})
+	}
+	return out
+}
+
+func subjectsToInputs(subjects []rbacv1.Subject) []SubjectInput {
+	out := make([]SubjectInput, 0, len(subjects))
+	for _, s := range subjects {
+		out = append(out, SubjectInput{Kind: s.Kind, Name: s.Name, Namespace: s.Namespace})
+	}
+	return out
+}

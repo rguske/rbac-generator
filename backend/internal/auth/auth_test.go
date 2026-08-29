@@ -91,6 +91,38 @@ func TestSessionInfo_Unauthenticated(t *testing.T) {
 	}
 }
 
+func TestSessionInfo_ClusterInfoUsesCamelCaseJSON(t *testing.T) {
+	// Regression test: session.ClusterInfo previously had no JSON tags, so
+	// Go's case-insensitive Unmarshal masked the bug in Go-only tests, but
+	// the wire format sent to the (case-sensitive) frontend was PascalCase
+	// ("Server"/"Version"/"CurrentContext") instead of the camelCase the
+	// frontend's ClusterInfo type expects (frontend/src/types/rbac.ts).
+	h, store := newTestHandler(t)
+	sess := store.Create()
+	sess.Authenticated = true
+	sess.ClusterInfo = &session.ClusterInfo{Server: "https://cluster.example", Version: "v1.30.0", CurrentContext: "my-context"}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/session", nil)
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: sess.ID})
+	rec := httptest.NewRecorder()
+
+	h.SessionInfo(rec, req)
+
+	var raw map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&raw); err != nil {
+		t.Fatalf("decode raw response: %v", err)
+	}
+	clusterInfo, ok := raw["clusterInfo"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected a clusterInfo object in response, got: %#v", raw)
+	}
+	for _, field := range []string{"server", "version", "currentContext"} {
+		if _, ok := clusterInfo[field]; !ok {
+			t.Errorf("expected camelCase field %q in clusterInfo, got: %#v", field, clusterInfo)
+		}
+	}
+}
+
 func TestMiddleware_RejectsMissingCookie(t *testing.T) {
 	store := session.NewStore(30 * time.Minute)
 	protected := Middleware(store)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

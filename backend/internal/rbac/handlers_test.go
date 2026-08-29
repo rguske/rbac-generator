@@ -133,6 +133,18 @@ func TestHandler_List_Roles(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("expected 1 role, got %d", len(items))
 	}
+	// The frontend's RbacResource type expects a flat "name"/"namespace" at
+	// the top level (not nested under "metadata"), matching CreateRequest's
+	// shape. See frontend/src/types/rbac.ts.
+	if name, _ := items[0]["name"].(string); name != "reader" {
+		t.Fatalf("expected flat top-level \"name\": %q, got item: %#v", "reader", items[0])
+	}
+	if ns, _ := items[0]["namespace"].(string); ns != "default" {
+		t.Fatalf("expected flat top-level \"namespace\": %q, got item: %#v", "default", items[0])
+	}
+	if _, hasMetadata := items[0]["metadata"]; hasMetadata {
+		t.Fatalf("response must not leak the raw Kubernetes object's \"metadata\" wrapper: %#v", items[0])
+	}
 }
 
 func TestHandler_Get_Role(t *testing.T) {
@@ -149,6 +161,16 @@ func TestHandler_Get_Role(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var got map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if name, _ := got["name"].(string); name != "reader" {
+		t.Fatalf("expected flat top-level \"name\": %q, got: %#v", "reader", got)
+	}
+	if _, hasMetadata := got["metadata"]; hasMetadata {
+		t.Fatalf("response must not leak the raw Kubernetes object's \"metadata\" wrapper: %#v", got)
 	}
 }
 

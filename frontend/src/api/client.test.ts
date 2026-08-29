@@ -1,6 +1,6 @@
 // frontend/src/api/client.test.ts
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { login, getSession } from './client';
+import { login, getSession, getNamespaces, UNAUTHORIZED_EVENT } from './client';
 
 describe('api client', () => {
   beforeEach(() => {
@@ -34,6 +34,40 @@ describe('api client', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(login('admin', 'wrong')).rejects.toThrow('invalid credentials');
+  });
+
+  it('dispatches UNAUTHORIZED_EVENT when an authenticated call gets a 401 (session expired)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({ error: 'unauthorized' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const listener = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, listener);
+
+    await expect(getNamespaces()).rejects.toThrow();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(UNAUTHORIZED_EVENT, listener);
+  });
+
+  it('does NOT dispatch UNAUTHORIZED_EVENT for a plain login failure (wrong credentials)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({ error: 'invalid credentials' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const listener = vi.fn();
+    window.addEventListener(UNAUTHORIZED_EVENT, listener);
+
+    await expect(login('admin', 'wrong')).rejects.toThrow();
+
+    expect(listener).not.toHaveBeenCalled();
+    window.removeEventListener(UNAUTHORIZED_EVENT, listener);
   });
 
   it('getSession returns the default state on a fresh session', async () => {
