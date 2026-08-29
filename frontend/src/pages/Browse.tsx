@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   Drawer,
+  DrawerActions,
+  DrawerCloseButton,
   DrawerContent,
   DrawerContentBody,
+  DrawerHead,
   DrawerPanelContent,
   FormSelect,
   FormSelectOption,
@@ -38,6 +41,7 @@ export function BrowsePage({ connected }: BrowsePageProps) {
       setItems([]);
       return;
     }
+    setSelected(null);
     listResources(kind, isNamespaced(kind) ? namespace || undefined : undefined)
       .then(setItems)
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load resources'));
@@ -52,14 +56,21 @@ export function BrowsePage({ connected }: BrowsePageProps) {
     }
   };
 
+  const closeDetail = () => setSelected(null);
+
   const panel = (
     <DrawerPanelContent>
+      <DrawerHead>
+        <DrawerActions>
+          <DrawerCloseButton onClose={closeDetail} />
+        </DrawerActions>
+      </DrawerHead>
       {selected && <pre data-testid="yaml-drawer">{toYaml(selected)}</pre>}
     </DrawerPanelContent>
   );
 
   return (
-    <Drawer isExpanded={Boolean(selected)} onExpand={() => undefined}>
+    <Drawer isExpanded={Boolean(selected)}>
       <DrawerContent panelContent={panel}>
         <DrawerContentBody>
           {error && <Alert variant="danger" title={error} />}

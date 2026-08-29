@@ -32,4 +32,32 @@ describe('BrowsePage', () => {
     render(<BrowsePage connected={false} />);
     expect(api.listResources).not.toHaveBeenCalled();
   });
+
+  it('clears the YAML drawer when the kind filter changes', async () => {
+    vi.spyOn(api, 'listResources').mockResolvedValue([{ name: 'reader', namespace: 'default' }]);
+    vi.spyOn(api, 'getResource').mockResolvedValue({ name: 'reader', namespace: 'default', rules: [] });
+    render(<BrowsePage connected />);
+    await waitFor(() => screen.getByText('reader'));
+
+    fireEvent.click(screen.getByText('reader'));
+    await waitFor(() => expect(screen.getByTestId('yaml-drawer')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('Kind filter'), { target: { value: 'clusterroles' } });
+
+    await waitFor(() => expect(screen.queryByTestId('yaml-drawer')).not.toBeInTheDocument());
+  });
+
+  it('closes the drawer when the close button is clicked', async () => {
+    vi.spyOn(api, 'listResources').mockResolvedValue([{ name: 'reader', namespace: 'default' }]);
+    vi.spyOn(api, 'getResource').mockResolvedValue({ name: 'reader', namespace: 'default', rules: [] });
+    render(<BrowsePage connected />);
+    await waitFor(() => screen.getByText('reader'));
+
+    fireEvent.click(screen.getByText('reader'));
+    await waitFor(() => expect(screen.getByTestId('yaml-drawer')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText('Close drawer panel'));
+
+    await waitFor(() => expect(screen.queryByTestId('yaml-drawer')).not.toBeInTheDocument());
+  });
 });
