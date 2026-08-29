@@ -83,4 +83,16 @@ describe('CreatePage', () => {
     const options = within(screen.getByLabelText('add-resources')).getAllByRole('option', { name: 'deployments' });
     expect(options).toHaveLength(1);
   });
+
+  it('shows help tooltips next to the Name and Namespace fields', () => {
+    render(<CreatePage connected={false} />);
+    expect(screen.getByLabelText('Name help')).toBeInTheDocument();
+    expect(screen.getByLabelText('Namespace help')).toBeInTheDocument();
+  });
+
+  it('shows a help tooltip for Role reference name on binding kinds', () => {
+    render(<CreatePage connected={false} />);
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'rolebindings' } });
+    expect(screen.getByLabelText('Role reference name help')).toBeInTheDocument();
+  });
 });

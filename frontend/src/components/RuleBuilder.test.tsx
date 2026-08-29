@@ -125,4 +125,12 @@ describe('RuleBuilder', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onChange).toHaveBeenCalledWith([{ apiGroups: [], resources: ['widgets.example.com'], verbs: [] }]);
   });
+
+  it('shows help tooltips for apiGroups, resources, subResource, and verbs', () => {
+    render(<RuleBuilder rules={[{ apiGroups: [], resources: [], verbs: [] }]} onChange={() => {}} />);
+    expect(screen.getByLabelText('apiGroups help')).toBeInTheDocument();
+    expect(screen.getByLabelText('resources help')).toBeInTheDocument();
+    expect(screen.getByLabelText('subResource help')).toBeInTheDocument();
+    expect(screen.getByLabelText('verbs help')).toBeInTheDocument();
+  });
 });

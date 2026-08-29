@@ -16,6 +16,7 @@ import {
 import { RuleBuilder } from '../components/RuleBuilder';
 import { SubjectBuilder } from '../components/SubjectBuilder';
 import { FormYamlSplit } from '../components/FormYamlSplit';
+import { FieldHelp } from '../components/FieldHelp';
 import { createResource, dryRun, getDiscoveryResources, getServiceAccounts } from '../api/client';
 import { isNamespaced, requiresRules, requiresSubjects } from '../types/rbac';
 import type { Kind, RbacResource, DiscoveryResource } from '../types/rbac';
@@ -130,16 +131,45 @@ export function CreatePage({ connected }: CreatePageProps) {
 
   const renderFields = () => (
     <>
-      <FormGroup label="Name" fieldId="name" isRequired>
+      <FormGroup
+        label="Name"
+        fieldId="name"
+        isRequired
+        labelHelp={
+          <FieldHelp label="Name">
+            The resource's name. Must be a valid Kubernetes name (lowercase alphanumeric characters, "-", or ".").
+          </FieldHelp>
+        }
+      >
         <TextInput id="name" value={resource.name} onChange={(_e, value) => updateField('name', value)} isRequired />
       </FormGroup>
       {isNamespaced(kind) && (
-        <FormGroup label="Namespace" fieldId="namespace" isRequired>
+        <FormGroup
+          label="Namespace"
+          fieldId="namespace"
+          isRequired
+          labelHelp={
+            <FieldHelp label="Namespace">
+              The namespace this resource applies to. Must be an existing namespace on the connected cluster, e.g.
+              "default".
+            </FieldHelp>
+          }
+        >
           <TextInput id="namespace" value={resource.namespace ?? ''} onChange={(_e, value) => updateField('namespace', value)} isRequired />
         </FormGroup>
       )}
       {requiresSubjects(kind) && (
-        <FormGroup label="Role reference name" fieldId="roleRefName" isRequired>
+        <FormGroup
+          label="Role reference name"
+          fieldId="roleRefName"
+          isRequired
+          labelHelp={
+            <FieldHelp label="Role reference name">
+              The name of the existing {kind === 'rolebindings' ? 'Role' : 'ClusterRole'} this binding grants. It
+              must already exist on the cluster.
+            </FieldHelp>
+          }
+        >
           <TextInput
             id="roleRefName"
             value={resource.roleRef?.name ?? ''}

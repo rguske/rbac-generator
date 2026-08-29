@@ -40,4 +40,9 @@ describe('SubjectBuilder', () => {
     fireEvent.change(screen.getByLabelText('subject-kind-0'), { target: { value: 'Group' } });
     expect(onChange).toHaveBeenCalledWith([{ kind: 'Group', name: 'alice' }]);
   });
+
+  it('shows a help tooltip explaining Kind/Name/Namespace', () => {
+    render(<SubjectBuilder subjects={[]} onChange={() => {}} serviceAccounts={[]} />);
+    expect(screen.getByLabelText('Subjects help')).toBeInTheDocument();
+  });
 });
