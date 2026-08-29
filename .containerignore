@@ -1,0 +1,6 @@
+.git
+.superpowers
+docs
+frontend/node_modules
+frontend/dist
+backend/bin

@@ -16,6 +16,7 @@ WORKDIR /opt/app-root/src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
+# Matches the //go:embed directive in backend/internal/httpapi/static.go
 COPY --from=frontend-build /opt/app-root/src/dist/ ./internal/httpapi/static/dist/
 ENV CGO_ENABLED=0
 RUN go build -o /opt/app-root/src/bin/rbac-generator ./cmd/server
