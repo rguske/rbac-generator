@@ -19,6 +19,7 @@ import { YamlToggle } from '../components/YamlToggle';
 import { createResource, dryRun, getDiscoveryResources, getServiceAccounts } from '../api/client';
 import { isNamespaced, requiresRules, requiresSubjects } from '../types/rbac';
 import type { Kind, RbacResource } from '../types/rbac';
+import { toYaml } from '../lib/yamlSync';
 
 const KIND_OPTIONS: { value: Kind; label: string }[] = [
   { value: 'roles', label: 'Role' },
@@ -43,6 +44,8 @@ export function CreatePage({ connected }: CreatePageProps) {
   const [preview, setPreview] = useState<{ result?: unknown; error?: string } | null>(null);
   const [dryRunPassed, setDryRunPassed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalogWarning, setCatalogWarning] = useState<string | null>(null);
+  const [serviceAccountsWarning, setServiceAccountsWarning] = useState<string | null>(null);
 
   useEffect(() => {
     getDiscoveryResources()
@@ -52,13 +55,22 @@ export function CreatePage({ connected }: CreatePageProps) {
           resources: Array.from(new Set(data.resources.map((r) => r.resource))).sort(),
           verbs: data.verbs,
         });
+        setCatalogWarning(null);
       })
-      .catch(() => undefined);
+      .catch(() => setCatalogWarning('Failed to load the resource catalog; autocomplete suggestions will be unavailable.'));
   }, [connected]);
 
   useEffect(() => {
     if (connected && resource.namespace && kind === 'rolebindings') {
-      getServiceAccounts(resource.namespace).then(setServiceAccounts).catch(() => setServiceAccounts([]));
+      getServiceAccounts(resource.namespace)
+        .then((accounts) => {
+          setServiceAccounts(accounts);
+          setServiceAccountsWarning(null);
+        })
+        .catch(() => {
+          setServiceAccounts([]);
+          setServiceAccountsWarning('Failed to load service accounts for this namespace; enter the name manually.');
+        });
     }
   }, [connected, resource.namespace, kind]);
 
@@ -98,11 +110,11 @@ export function CreatePage({ connected }: CreatePageProps) {
   };
 
   const handleDownload = () => {
-    const blob = new Blob([JSON.stringify(resource, null, 2)], { type: 'application/json' });
+    const blob = new Blob([toYaml(resource)], { type: 'application/yaml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${resource.name || 'resource'}.json`;
+    a.download = `${resource.name || 'resource'}.yaml`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -146,6 +158,8 @@ export function CreatePage({ connected }: CreatePageProps) {
     <Card>
       <CardBody>
         {error && <Alert variant="danger" title={error} />}
+        {catalogWarning && <Alert variant="warning" title={catalogWarning} />}
+        {serviceAccountsWarning && <Alert variant="warning" title={serviceAccountsWarning} />}
         <Form>
           <FormGroup label="Kind" fieldId="kind">
             <FormSelect id="kind" value={kind} onChange={(_e, value) => handleKindChange(value)}>
