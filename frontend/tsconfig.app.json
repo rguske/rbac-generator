@@ -22,6 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.tsx"]
+  "include": ["src", "vitest.setup.ts"]
 }
