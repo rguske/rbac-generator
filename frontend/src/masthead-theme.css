@@ -1,0 +1,12 @@
+/* frontend/src/masthead-theme.css */
+/* Scoped override: only the masthead bar gets a brand color. Buttons,
+   links, active-nav-item, and alerts all keep PatternFly's defaults, so
+   destructive/danger semantics stay visually unambiguous from branding. */
+.pf-v6-c-masthead {
+  background-color: #0066cc;
+  color: #ffffff;
+}
+
+.pf-v6-c-masthead .pf-v6-c-brand {
+  color: #ffffff;
+}

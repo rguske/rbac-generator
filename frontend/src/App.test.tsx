@@ -22,6 +22,7 @@ describe('App', () => {
     vi.spyOn(api, 'getSession').mockResolvedValue({ authenticated: true, connected: false });
     render(<App />);
     await waitFor(() => expect(screen.getByText('rbac-generator')).toBeInTheDocument());
+    expect(screen.getByRole('img', { name: 'rbac-generator logo' })).toBeInTheDocument();
     expect(screen.getByText('Connection')).toBeInTheDocument();
     expect(screen.getByText('Create')).toBeInTheDocument();
     expect(screen.getByText('Browse')).toBeInTheDocument();

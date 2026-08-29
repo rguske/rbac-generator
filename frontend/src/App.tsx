@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import logo from './assets/logo.png';
 import {
   Masthead,
   MastheadBrand,
@@ -86,7 +87,10 @@ export function App() {
   const masthead = (
     <Masthead>
       <MastheadMain>
-        <MastheadBrand>rbac-generator</MastheadBrand>
+        <MastheadBrand>
+          <img src={logo} alt="rbac-generator logo" style={{ height: '32px', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          rbac-generator
+        </MastheadBrand>
       </MastheadMain>
     </Masthead>
   );
