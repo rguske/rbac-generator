@@ -75,27 +75,35 @@ function ChipMultiSelect({ label, values, options, onChange }: ChipMultiSelectPr
 }
 
 export function RuleBuilder({ rules, onChange, resourceOptions = [], groupOptions = [], verbOptions = [] }: RuleBuilderProps) {
-  const nextRowKeyRef = useRef(0);
-  const [rowKeys, setRowKeys] = useState<number[]>(() => rules.map(() => nextRowKeyRef.current++));
+  const objectKeysRef = useRef(new WeakMap<object, number>());
+  const nextKeyRef = useRef(0);
+
+  const getObjectKey = (obj: object) => {
+    const map = objectKeysRef.current;
+    let key = map.get(obj);
+    if (key === undefined) {
+      key = nextKeyRef.current++;
+      map.set(obj, key);
+    }
+    return key;
+  };
 
   const updateRule = (index: number, field: keyof PolicyRule, values: string[]) => {
     onChange(rules.map((rule, i) => (i === index ? { ...rule, [field]: values } : rule)));
   };
 
   const addRule = () => {
-    setRowKeys((keys) => [...keys, nextRowKeyRef.current++]);
     onChange([...rules, { apiGroups: [], resources: [], verbs: [] }]);
   };
 
   const removeRule = (index: number) => {
-    setRowKeys((keys) => keys.filter((_, i) => i !== index));
     onChange(rules.filter((_, i) => i !== index));
   };
 
   return (
     <div data-testid="rule-builder">
       {rules.map((rule, index) => (
-        <div key={rowKeys[index]} data-testid={`rule-row-${index}`} style={{ border: '1px solid #ccc', padding: '0.5rem', marginBottom: '0.5rem' }}>
+        <div key={getObjectKey(rule)} data-testid={`rule-row-${index}`} style={{ border: '1px solid #ccc', padding: '0.5rem', marginBottom: '0.5rem' }}>
           <ChipMultiSelect label="apiGroups" values={rule.apiGroups} options={groupOptions} onChange={(v) => updateRule(index, 'apiGroups', v)} />
           <ChipMultiSelect label="resources" values={rule.resources} options={resourceOptions} onChange={(v) => updateRule(index, 'resources', v)} />
           <ChipMultiSelect label="verbs" values={rule.verbs} options={verbOptions} onChange={(v) => updateRule(index, 'verbs', v)} />
