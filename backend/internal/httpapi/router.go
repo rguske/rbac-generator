@@ -1,4 +1,3 @@
-// backend/internal/httpapi/router.go
 package httpapi
 
 import (
@@ -7,14 +6,14 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"rbac-generator/internal/auth"
+	"rbac-generator/internal/connection"
 	"rbac-generator/internal/session"
 )
 
-// Deps wires the handlers this router needs. Fields are added to as
-// later tasks introduce more handlers (connection, discovery, rbac).
 type Deps struct {
 	Store *session.Store
 	Auth  *auth.Handler
+	Conn  *connection.Handler
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -27,6 +26,14 @@ func NewRouter(deps Deps) http.Handler {
 		r.Post("/api/login", deps.Auth.Login)
 		r.Post("/api/logout", deps.Auth.Logout)
 		r.Get("/api/session", deps.Auth.SessionInfo)
+	}
+
+	if deps.Conn != nil {
+		r.Route("/api/connection", func(r chi.Router) {
+			r.Use(auth.Middleware(deps.Store))
+			r.Post("/", deps.Conn.Connect)
+			r.Delete("/", deps.Conn.Disconnect)
+		})
 	}
 
 	return r

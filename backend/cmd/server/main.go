@@ -1,4 +1,3 @@
-// backend/cmd/server/main.go
 package main
 
 import (
@@ -8,6 +7,7 @@ import (
 	"time"
 
 	"rbac-generator/internal/auth"
+	"rbac-generator/internal/connection"
 	"rbac-generator/internal/httpapi"
 	"rbac-generator/internal/session"
 )
@@ -31,6 +31,7 @@ func main() {
 	router := httpapi.NewRouter(httpapi.Deps{
 		Store: store,
 		Auth:  auth.NewHandler(auth.Config{Username: username, PasswordHash: passwordHash}, store),
+		Conn:  connection.NewHandler(),
 	})
 
 	log.Printf("rbac-generator listening on :%s", port)
