@@ -1,3 +1,4 @@
+// backend/internal/httpapi/router.go (full replacement)
 package httpapi
 
 import (
@@ -8,6 +9,7 @@ import (
 	"rbac-generator/internal/auth"
 	"rbac-generator/internal/connection"
 	"rbac-generator/internal/discovery"
+	"rbac-generator/internal/rbac"
 	"rbac-generator/internal/session"
 )
 
@@ -16,6 +18,7 @@ type Deps struct {
 	Auth      *auth.Handler
 	Conn      *connection.Handler
 	Discovery *discovery.Handler
+	RBAC      *rbac.Handler
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -47,6 +50,17 @@ func NewRouter(deps Deps) http.Handler {
 			r.Use(auth.Middleware(deps.Store))
 			r.Get("/", deps.Discovery.Namespaces)
 			r.Get("/{namespace}/serviceaccounts", deps.Discovery.ServiceAccounts)
+		})
+	}
+
+	if deps.RBAC != nil {
+		r.Route("/api/rbac/{kind}", func(r chi.Router) {
+			r.Use(auth.Middleware(deps.Store))
+			r.Post("/dry-run", deps.RBAC.DryRun)
+			r.Post("/", deps.RBAC.Create)
+			r.Get("/", deps.RBAC.List)
+			r.Get("/{name}", deps.RBAC.Get)
+			r.Get("/{namespace}/{name}", deps.RBAC.Get)
 		})
 	}
 

@@ -1,3 +1,4 @@
+// backend/cmd/server/main.go (full replacement)
 package main
 
 import (
@@ -10,6 +11,7 @@ import (
 	"rbac-generator/internal/connection"
 	"rbac-generator/internal/discovery"
 	"rbac-generator/internal/httpapi"
+	"rbac-generator/internal/rbac"
 	"rbac-generator/internal/session"
 )
 
@@ -34,6 +36,7 @@ func main() {
 		Auth:      auth.NewHandler(auth.Config{Username: username, PasswordHash: passwordHash}, store),
 		Conn:      connection.NewHandler(),
 		Discovery: discovery.NewHandler(),
+		RBAC:      rbac.NewHandler(),
 	})
 
 	log.Printf("rbac-generator listening on :%s", port)
