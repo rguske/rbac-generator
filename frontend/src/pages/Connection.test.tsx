@@ -93,6 +93,35 @@ describe('ConnectionPage', () => {
     });
   });
 
+  it('rejects oversized kubeconfig files without reading or connecting', async () => {
+    const readAsText = vi.fn();
+    class MockFileReader {
+      readAsText = readAsText;
+    }
+    vi.stubGlobal('FileReader', MockFileReader);
+
+    const info = { server: 'https://x:6443', version: 'v1.30.0', currentContext: 'ctx' };
+    const connectSpy = vi.spyOn(api, 'connect').mockResolvedValue(info);
+    connectSpy.mockClear();
+    const onConnected = vi.fn();
+    const { container } = render(<ConnectionPage onConnected={onConnected} onDisconnected={() => {}} />);
+
+    const oversized = new File([new Uint8Array(1024 * 1024 + 1)], 'huge-kubeconfig.yaml', {
+      type: 'application/x-yaml',
+    });
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [oversized] } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Kubeconfig file is too large/i)).toBeInTheDocument();
+    });
+    expect(readAsText).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Connect' }));
+    expect(connectSpy).not.toHaveBeenCalled();
+    expect(onConnected).not.toHaveBeenCalled();
+  });
+
   it('shows the selected kubeconfig filename after file upload', async () => {
     const fileContent = 'apiVersion: v1';
     mockFileReader(fileContent);

@@ -7,6 +7,7 @@ import {
   Card,
   CardBody,
   CardTitle,
+  DropzoneErrorCode,
   FileUpload,
   Form,
   FormGroup,
@@ -21,6 +22,14 @@ const KUBECONFIG_ACCEPT = {
   'text/yaml': ['.yaml', '.yml'],
   'text/x-yaml': ['.yaml', '.yml'],
 } as const;
+
+const MAX_KUBECONFIG_FILE_BYTES = 1024 * 1024;
+
+const KUBECONFIG_FILE_TOO_LARGE_ERROR = `Kubeconfig file is too large. Maximum size is ${MAX_KUBECONFIG_FILE_BYTES / (1024 * 1024)} MB.`;
+
+function isKubeconfigFileTooLarge(file: File): boolean {
+  return file.size > MAX_KUBECONFIG_FILE_BYTES;
+}
 
 interface ConnectionPageProps {
   clusterInfo?: ClusterInfo;
@@ -60,9 +69,33 @@ export function ConnectionPage({ clusterInfo, onConnected, onDisconnected }: Con
     }
   };
 
+  const handleOversizedKubeconfigFile = () => {
+    setError(KUBECONFIG_FILE_TOO_LARGE_ERROR);
+    setKubeconfig('');
+    setUploadedFilename('');
+  };
+
   const handleFileInputChange = (_event: DropEvent, file: File) => {
+    if (isKubeconfigFileTooLarge(file)) {
+      handleOversizedKubeconfigFile();
+      return;
+    }
+
     setUploadedFilename(file.name);
     setError(null);
+  };
+
+  const handleFileDropRejected = (
+    rejectedFiles: { errors: readonly { code: string }[] }[],
+    _event: DropEvent,
+  ) => {
+    const tooLarge = rejectedFiles.some((rejection) =>
+      rejection.errors.some((error) => error.code === DropzoneErrorCode.FileTooLarge),
+    );
+
+    if (tooLarge) {
+      handleOversizedKubeconfigFile();
+    }
   };
 
   const handleFileDataChange = (_event: DropEvent, data: string) => {
@@ -132,7 +165,11 @@ export function ConnectionPage({ clusterInfo, onConnected, onDisconnected }: Con
               onClearClick={handleFileClear}
               isLoading={isFileLoading}
               isClearButtonDisabled={!uploadedFilename}
-              dropzoneProps={{ accept: KUBECONFIG_ACCEPT }}
+              dropzoneProps={{
+                accept: KUBECONFIG_ACCEPT,
+                maxSize: MAX_KUBECONFIG_FILE_BYTES,
+                onDropRejected: handleFileDropRejected,
+              }}
             />
           </FormGroup>
           <ActionGroup>
