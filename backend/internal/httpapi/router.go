@@ -7,13 +7,15 @@ import (
 
 	"rbac-generator/internal/auth"
 	"rbac-generator/internal/connection"
+	"rbac-generator/internal/discovery"
 	"rbac-generator/internal/session"
 )
 
 type Deps struct {
-	Store *session.Store
-	Auth  *auth.Handler
-	Conn  *connection.Handler
+	Store     *session.Store
+	Auth      *auth.Handler
+	Conn      *connection.Handler
+	Discovery *discovery.Handler
 }
 
 func NewRouter(deps Deps) http.Handler {
@@ -33,6 +35,18 @@ func NewRouter(deps Deps) http.Handler {
 			r.Use(auth.Middleware(deps.Store))
 			r.Post("/", deps.Conn.Connect)
 			r.Delete("/", deps.Conn.Disconnect)
+		})
+	}
+
+	if deps.Discovery != nil {
+		r.Route("/api/discovery", func(r chi.Router) {
+			r.Use(auth.Middleware(deps.Store))
+			r.Get("/resources", deps.Discovery.Resources)
+		})
+		r.Route("/api/namespaces", func(r chi.Router) {
+			r.Use(auth.Middleware(deps.Store))
+			r.Get("/", deps.Discovery.Namespaces)
+			r.Get("/{namespace}/serviceaccounts", deps.Discovery.ServiceAccounts)
 		})
 	}
 

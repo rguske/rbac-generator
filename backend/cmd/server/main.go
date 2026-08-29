@@ -8,6 +8,7 @@ import (
 
 	"rbac-generator/internal/auth"
 	"rbac-generator/internal/connection"
+	"rbac-generator/internal/discovery"
 	"rbac-generator/internal/httpapi"
 	"rbac-generator/internal/session"
 )
@@ -29,9 +30,10 @@ func main() {
 	store.StartJanitor(5*time.Minute, done)
 
 	router := httpapi.NewRouter(httpapi.Deps{
-		Store: store,
-		Auth:  auth.NewHandler(auth.Config{Username: username, PasswordHash: passwordHash}, store),
-		Conn:  connection.NewHandler(),
+		Store:     store,
+		Auth:      auth.NewHandler(auth.Config{Username: username, PasswordHash: passwordHash}, store),
+		Conn:      connection.NewHandler(),
+		Discovery: discovery.NewHandler(),
 	})
 
 	log.Printf("rbac-generator listening on :%s", port)
