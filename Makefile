@@ -1,4 +1,10 @@
 # Makefile
+
+# Image tag matches the app's release version (see frontend/package.json and
+# APP_VERSION in frontend/src/App.tsx). Deliberately never "latest", so a
+# running container's version is always explicit and reproducible.
+VERSION ?= v1.0
+
 .PHONY: build test run image hash-password
 
 build:
@@ -14,4 +20,4 @@ hash-password:
 	@cd backend && go run ./cmd/hashpw "$(PASSWORD)"
 
 image:
-	podman build -t rbac-generator:latest -f Containerfile .
+	podman build -t rbac-generator:$(VERSION) -f Containerfile .

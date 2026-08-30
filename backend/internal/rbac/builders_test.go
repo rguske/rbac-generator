@@ -56,6 +56,30 @@ func TestBuildClusterRole_Success(t *testing.T) {
 	}
 }
 
+func TestBuildClusterRole_AllowsNonResourceURLsRule(t *testing.T) {
+	req := CreateRequest{
+		Name:  "discovery-reader",
+		Rules: []PolicyRuleInput{{NonResourceURLs: []string{"/healthz", "/version"}, Verbs: []string{"get"}}},
+	}
+	cr, err := BuildClusterRole(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cr.Rules) != 1 || len(cr.Rules[0].NonResourceURLs) != 2 {
+		t.Errorf("expected nonResourceURLs to carry through, got: %+v", cr.Rules)
+	}
+}
+
+func TestBuildClusterRole_RequiresResourcesOrNonResourceURLs(t *testing.T) {
+	req := CreateRequest{
+		Name:  "broken",
+		Rules: []PolicyRuleInput{{Verbs: []string{"get"}}},
+	}
+	if _, err := BuildClusterRole(req); err == nil {
+		t.Fatal("expected error when a rule has neither resources nor nonResourceURLs")
+	}
+}
+
 func TestBuildRoleBinding_Success(t *testing.T) {
 	req := CreateRequest{
 		Name:      "reader-binding",

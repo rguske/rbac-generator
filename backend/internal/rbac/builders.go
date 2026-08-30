@@ -95,11 +95,15 @@ func buildPolicyRules(inputs []PolicyRuleInput) ([]rbacv1.PolicyRule, error) {
 		if len(in.Verbs) == 0 {
 			return nil, fmt.Errorf("rule %d: at least one verb is required", i)
 		}
+		if len(in.Resources) == 0 && len(in.NonResourceURLs) == 0 {
+			return nil, fmt.Errorf("rule %d: either resources or nonResourceURLs is required", i)
+		}
 		rules = append(rules, rbacv1.PolicyRule{
-			APIGroups:     in.APIGroups,
-			Resources:     in.Resources,
-			Verbs:         in.Verbs,
-			ResourceNames: in.ResourceNames,
+			APIGroups:       in.APIGroups,
+			Resources:       in.Resources,
+			Verbs:           in.Verbs,
+			ResourceNames:   in.ResourceNames,
+			NonResourceURLs: in.NonResourceURLs,
 		})
 	}
 	return rules, nil
@@ -176,10 +180,11 @@ func policyRulesToInputs(rules []rbacv1.PolicyRule) []PolicyRuleInput {
 	out := make([]PolicyRuleInput, 0, len(rules))
 	for _, r := range rules {
 		out = append(out, PolicyRuleInput{
-			APIGroups:     r.APIGroups,
-			Resources:     r.Resources,
-			Verbs:         r.Verbs,
-			ResourceNames: r.ResourceNames,
+			APIGroups:       r.APIGroups,
+			Resources:       r.Resources,
+			Verbs:           r.Verbs,
+			ResourceNames:   r.ResourceNames,
+			NonResourceURLs: r.NonResourceURLs,
 		})
 	}
 	return out

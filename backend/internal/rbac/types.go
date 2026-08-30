@@ -13,10 +13,15 @@ const (
 )
 
 type PolicyRuleInput struct {
-	APIGroups     []string `json:"apiGroups"`
-	Resources     []string `json:"resources"`
-	Verbs         []string `json:"verbs"`
+	APIGroups []string `json:"apiGroups"`
+	Resources []string `json:"resources"`
+	Verbs     []string `json:"verbs"`
+	// ResourceNames restricts a rule to specific named objects.
 	ResourceNames []string `json:"resourceNames,omitempty"`
+	// NonResourceURLs grants access to non-resource HTTP paths, e.g.
+	// "/healthz" or "/api/*". Only valid on ClusterRoles, and mutually
+	// exclusive with APIGroups/Resources on the same rule.
+	NonResourceURLs []string `json:"nonResourceURLs,omitempty"`
 }
 
 type SubjectInput struct {

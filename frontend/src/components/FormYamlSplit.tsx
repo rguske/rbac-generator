@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { CodeEditor, Language } from '@patternfly/react-code-editor';
 import { Flex, FlexItem } from '@patternfly/react-core';
 import { toYaml, fromYaml } from '../lib/yamlSync';
+import { useIsDarkTheme } from '../hooks/useIsDarkTheme';
 
 interface FormYamlSplitProps<T> {
   value: T;
@@ -19,6 +20,7 @@ export function FormYamlSplit<T>({ value, onChange, kind, renderForm }: FormYaml
   const [error, setError] = useState<string | null>(null);
   const lastChangeSource = useRef<'form' | 'yaml'>('form');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDarkTheme = useIsDarkTheme();
 
   useEffect(() => {
     if (lastChangeSource.current === 'yaml') {
@@ -67,7 +69,19 @@ export function FormYamlSplit<T>({ value, onChange, kind, renderForm }: FormYaml
         <FlexItem flex={{ default: 'flex_1' }}>{renderForm()}</FlexItem>
         <FlexItem flex={{ default: 'flex_1' }}>
           {error && <div role="alert">{error}</div>}
-          <CodeEditor code={yamlText} language={Language.yaml} onChange={handleYamlChange} height="400px" />
+          {/* Fill as much of the viewport as is available below the masthead
+              and above the action buttons, instead of a fixed pixel height,
+              so the YAML pane is as large as the screen allows. isFullHeight
+              makes the editor itself stretch to fill this wrapper. */}
+          <div data-testid="yaml-pane" style={{ height: 'calc(100vh - 260px)', minHeight: '400px' }}>
+            <CodeEditor
+              code={yamlText}
+              language={Language.yaml}
+              onChange={handleYamlChange}
+              isFullHeight
+              isDarkTheme={isDarkTheme}
+            />
+          </div>
         </FlexItem>
       </Flex>
     </div>

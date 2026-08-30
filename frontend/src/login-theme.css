@@ -1,0 +1,42 @@
+/* frontend/src/login-theme.css */
+/* Plain, theme-aware Login page background: white in light mode, a dark
+   grey (not pure black) in dark mode - explicit colors rather than
+   PatternFly's default tokens, since the default dark background resolves
+   to pure black. */
+.pf-v6-c-login {
+  background-color: #ffffff;
+}
+
+:where(.pf-v6-theme-dark) .pf-v6-c-login {
+  /* PatternFly's gray-80 token value - a clear, neutral dark grey rather
+     than the near-black the dark theme otherwise defaults to. */
+  background-color: #292929;
+}
+
+/* The login card ("mask") itself: without PatternFly's glass theme, its
+   background falls back to matching the page exactly and its box-shadow
+   falls back to none, so it doesn't read as a distinct box. Give it its
+   own background, border, and shadow so it's clearly separated from the
+   page behind it, in both color themes. */
+.pf-v6-c-login__main {
+  background-color: #f2f2f2 !important;
+  border: 1px solid #e0e0e0 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+}
+
+:where(.pf-v6-theme-dark) .pf-v6-c-login__main {
+  /* Lighter than the page's gray-80 background so the card reads as
+     elevated, matching how dark-mode surfaces are usually layered. */
+  background-color: #383838 !important;
+  border-color: #4d4d4d !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* The tagline next to the logo ("Build and apply Kubernetes RBAC
+   resources."), rendered via LoginPage's plain "textContent" prop with no
+   sizing of its own by default - bump it up so it reads as a proper
+   subtitle rather than fine print. */
+.pf-v6-c-login__footer p {
+  font-size: 1.25rem;
+  line-height: 1.5;
+}

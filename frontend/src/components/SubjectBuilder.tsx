@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { Button, FormSelect, FormSelectOption, TextInput } from '@patternfly/react-core';
 import { MinusCircleIcon, PlusCircleIcon } from '@patternfly/react-icons';
 import type { Subject } from '../types/rbac';
-import { FieldHelp } from './FieldHelp';
+import { SearchableSelect } from './SearchableSelect';
 
 interface SubjectBuilderProps {
   subjects: Subject[];
@@ -41,14 +41,6 @@ export function SubjectBuilder({ subjects, onChange, serviceAccounts }: SubjectB
 
   return (
     <div data-testid="subject-builder">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.25rem' }}>
-        <strong>Subjects</strong>
-        <FieldHelp label="Subjects">
-          Who this binding grants the role to. Kind: ServiceAccount (pick from the connected namespace), User, or
-          Group. Name: the subject's exact name. Namespace: only needed for ServiceAccount subjects, and must match
-          the ServiceAccount's own namespace.
-        </FieldHelp>
-      </div>
       {subjects.map((subject, index) => (
         <div key={getObjectKey(subject)} data-testid={`subject-row-${index}`} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
           <FormSelect aria-label={`subject-kind-${index}`} value={subject.kind} onChange={(_e, value) => updateSubject(index, 'kind', value)}>
@@ -57,12 +49,13 @@ export function SubjectBuilder({ subjects, onChange, serviceAccounts }: SubjectB
             ))}
           </FormSelect>
           {subject.kind === 'ServiceAccount' ? (
-            <FormSelect aria-label={`subject-name-${index}`} value={subject.name} onChange={(_e, value) => updateSubject(index, 'name', value)}>
-              <FormSelectOption key="" value="" label="Select a ServiceAccount" />
-              {serviceAccounts.map((sa) => (
-                <FormSelectOption key={sa} value={sa} label={sa} />
-              ))}
-            </FormSelect>
+            <SearchableSelect
+              ariaLabel={`subject-name-${index}`}
+              placeholder="Select a ServiceAccount"
+              value={subject.name}
+              options={serviceAccounts.map((sa) => ({ value: sa, label: sa }))}
+              onChange={(value) => updateSubject(index, 'name', value)}
+            />
           ) : (
             <TextInput
               aria-label={`subject-name-${index}`}

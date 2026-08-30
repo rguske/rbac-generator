@@ -7,6 +7,8 @@ import {
   Card,
   CardBody,
   CardTitle,
+  ClipboardCopy,
+  ClipboardCopyVariant,
   DropzoneErrorCode,
   FileUpload,
   Form,
@@ -135,6 +137,39 @@ export function ConnectionPage({ clusterInfo, onConnected, onDisconnected }: Con
       <CardTitle>Connect to a cluster</CardTitle>
       <CardBody>
         {error && <Alert variant="danger" title={error} />}
+        <Alert
+          variant="info"
+          isInline
+          title="Managing multiple clusters or contexts?"
+          style={{ marginBottom: '1rem' }}
+        >
+          <p>
+            Your default kubeconfig may reference several clusters. Export just the{' '}
+            <strong>current context</strong> so you connect to the right one:
+          </p>
+          <ClipboardCopy
+            isReadOnly
+            isCode
+            hoverTip="Copy"
+            clickTip="Copied"
+            copyAriaLabel="Copy oc export command"
+            variant={ClipboardCopyVariant.inline}
+          >
+            oc config view --raw --minify &gt; kubeconfig.yaml
+          </ClipboardCopy>
+          <br />
+          <ClipboardCopy
+            isReadOnly
+            isCode
+            hoverTip="Copy"
+            clickTip="Copied"
+            copyAriaLabel="Copy kubectl export command"
+            variant={ClipboardCopyVariant.inline}
+          >
+            kubectl config view --raw --minify &gt; kubeconfig.yaml
+          </ClipboardCopy>
+          <p style={{ marginTop: '0.5rem' }}>Then paste its contents or upload it below.</p>
+        </Alert>
         <Form>
           <FormGroup label="Kubeconfig" fieldId="kubeconfig">
             <TextArea

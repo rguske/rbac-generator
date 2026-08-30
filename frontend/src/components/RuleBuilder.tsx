@@ -1,9 +1,10 @@
 // frontend/src/components/RuleBuilder.tsx
 import { useRef, useState } from 'react';
-import { Button, FormSelect, FormSelectOption, TextInput } from '@patternfly/react-core';
+import { Button, Label, TextInput } from '@patternfly/react-core';
 import { MinusCircleIcon, PlusCircleIcon } from '@patternfly/react-icons';
 import type { DiscoveryResource, PolicyRule } from '../types/rbac';
 import { FieldHelp } from './FieldHelp';
+import { SearchableSelect } from './SearchableSelect';
 
 interface RuleBuilderProps {
   rules: PolicyRule[];
@@ -43,22 +44,26 @@ function ChipMultiSelect({ label, values, options, onChange, helpText }: ChipMul
       </div>
       <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
         {values.map((value) => (
-          <span key={value} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '0 0.25rem' }}>
+          <Label
+            key={value}
+            color="blue"
+            isCompact
+            onClose={() => removeValue(value)}
+            closeBtnAriaLabel={`remove-${label}-${value}`}
+          >
             {value}
-            <button type="button" aria-label={`remove-${label}-${value}`} onClick={() => removeValue(value)}>
-              &times;
-            </button>
-          </span>
+          </Label>
         ))}
       </div>
       <div style={{ display: 'flex', gap: '0.25rem' }}>
         {options.length > 0 && (
-          <FormSelect aria-label={`add-${label}`} value="" onChange={(_e, value) => addValue(value)}>
-            <FormSelectOption key="" value="" label={`Add ${label}...`} />
-            {options.filter((o) => !values.includes(o)).map((option) => (
-              <FormSelectOption key={option} value={option} label={option} />
-            ))}
-          </FormSelect>
+          <SearchableSelect
+            ariaLabel={`add-${label}`}
+            placeholder={`Add ${label}...`}
+            value=""
+            options={options.filter((o) => !values.includes(o)).map((option) => ({ value: option, label: option }))}
+            onChange={addValue}
+          />
         )}
         <TextInput
           aria-label={`custom-${label}`}
@@ -136,36 +141,40 @@ function ResourcePicker({ values, catalog, selectedGroups, onChange }: ResourceP
       </div>
       <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
         {values.map((value) => (
-          <span key={value} style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '0 0.25rem' }}>
+          <Label
+            key={value}
+            color="blue"
+            isCompact
+            onClose={() => removeValue(value)}
+            closeBtnAriaLabel={`remove-resources-${value}`}
+          >
             {value}
-            <button type="button" aria-label={`remove-resources-${value}`} onClick={() => removeValue(value)}>
-              &times;
-            </button>
-          </span>
+          </Label>
         ))}
       </div>
       <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
         {filtered.length > 0 && (
-          <FormSelect aria-label="add-resources" value={selectedResource} onChange={(_e, value) => handleResourceSelect(value)}>
-            <FormSelectOption key="" value="" label="Add resource..." />
-            {filtered.map((entry) => (
-              <FormSelectOption
-                key={`${entry.group}/${entry.resource}`}
-                value={entry.resource}
-                label={entry.isCustomResource ? `${entry.resource} (Custom Resource)` : entry.resource}
-              />
-            ))}
-          </FormSelect>
+          <SearchableSelect
+            ariaLabel="add-resources"
+            placeholder="Add resource..."
+            value={selectedResource}
+            options={filtered.map((entry) => ({
+              value: entry.resource,
+              label: entry.isCustomResource ? `${entry.resource} (Custom Resource)` : entry.resource,
+            }))}
+            onChange={handleResourceSelect}
+          />
         )}
         {selectedResource && subResourceOptions.length > 0 && (
           <>
             <span>/</span>
-            <FormSelect aria-label="add-subresource" value={selectedSubResource} onChange={(_e, value) => setSelectedSubResource(value)}>
-              <FormSelectOption key="" value="" label="— none —" />
-              {subResourceOptions.map((sub) => (
-                <FormSelectOption key={sub} value={sub} label={sub} />
-              ))}
-            </FormSelect>
+            <SearchableSelect
+              ariaLabel="add-subresource"
+              placeholder="— none —"
+              value={selectedSubResource}
+              options={subResourceOptions.map((sub) => ({ value: sub, label: sub }))}
+              onChange={setSelectedSubResource}
+            />
           </>
         )}
         {selectedResource && (
@@ -251,6 +260,15 @@ export function RuleBuilder({ rules, onChange, resourceCatalog = [], groupOption
             onChange={(v) => updateRule(index, 'verbs', v)}
             helpText="The actions this rule allows, e.g. get, list, watch."
           />
+          {rule.nonResourceURLs && (
+            <ChipMultiSelect
+              label="nonResourceURLs"
+              values={rule.nonResourceURLs}
+              options={[]}
+              onChange={(v) => updateRule(index, 'nonResourceURLs', v)}
+              helpText='Non-resource HTTP paths this rule grants access to, e.g. "/healthz" or "/api/*". Only valid on ClusterRoles, and used instead of apiGroups/resources.'
+            />
+          )}
           <Button variant="plain" aria-label={`remove-rule-${index}`} onClick={() => removeRule(index)}>
             <MinusCircleIcon />
           </Button>

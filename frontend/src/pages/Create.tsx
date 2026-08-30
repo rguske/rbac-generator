@@ -7,12 +7,14 @@ import {
   CardBody,
   Form,
   FormGroup,
+  FormSection,
   FormSelect,
   FormSelectOption,
   Modal,
   ModalVariant,
   TextInput,
 } from '@patternfly/react-core';
+import { EraserIcon } from '@patternfly/react-icons';
 import { RuleBuilder } from '../components/RuleBuilder';
 import { SubjectBuilder } from '../components/SubjectBuilder';
 import { FormYamlSplit } from '../components/FormYamlSplit';
@@ -21,6 +23,8 @@ import { createResource, dryRun, getDiscoveryResources, getServiceAccounts } fro
 import { isNamespaced, requiresRules, requiresSubjects } from '../types/rbac';
 import type { Kind, RbacResource, DiscoveryResource } from '../types/rbac';
 import { toYaml } from '../lib/yamlSync';
+
+const DEFAULT_KIND: Kind = 'roles';
 
 const KIND_OPTIONS: { value: Kind; label: string }[] = [
   { value: 'roles', label: 'Role' },
@@ -31,11 +35,13 @@ const KIND_OPTIONS: { value: Kind; label: string }[] = [
 
 interface CreatePageProps {
   connected: boolean;
+  initialKind?: Kind;
+  initialResource?: RbacResource;
 }
 
-export function CreatePage({ connected }: CreatePageProps) {
-  const [kind, setKind] = useState<Kind>('roles');
-  const [resource, setResource] = useState<RbacResource>({ name: '' });
+export function CreatePage({ connected, initialKind, initialResource }: CreatePageProps) {
+  const [kind, setKind] = useState<Kind>(initialKind ?? DEFAULT_KIND);
+  const [resource, setResource] = useState<RbacResource>(initialResource ?? { name: '' });
   const [catalog, setCatalog] = useState<{ groups: string[]; resources: DiscoveryResource[]; verbs: string[] }>({
     groups: [],
     resources: [],
@@ -119,6 +125,14 @@ export function CreatePage({ connected }: CreatePageProps) {
     }
   };
 
+  const handleReset = () => {
+    setKind(DEFAULT_KIND);
+    setResource({ name: '' });
+    setPreview(null);
+    setDryRunPassed(false);
+    setError(null);
+  };
+
   const handleDownload = () => {
     const blob = new Blob([toYaml(resource)], { type: 'application/yaml' });
     const url = URL.createObjectURL(blob);
@@ -131,64 +145,90 @@ export function CreatePage({ connected }: CreatePageProps) {
 
   const renderFields = () => (
     <>
-      <FormGroup
-        label="Name"
-        fieldId="name"
-        isRequired
-        labelHelp={
-          <FieldHelp label="Name">
-            The resource's name. Must be a valid Kubernetes name (lowercase alphanumeric characters, "-", or ".").
-          </FieldHelp>
-        }
-      >
-        <TextInput id="name" value={resource.name} onChange={(_e, value) => updateField('name', value)} isRequired />
-      </FormGroup>
-      {isNamespaced(kind) && (
-        <FormGroup
-          label="Namespace"
-          fieldId="namespace"
-          isRequired
-          labelHelp={
-            <FieldHelp label="Namespace">
-              The namespace this resource applies to. Must be an existing namespace on the connected cluster, e.g.
-              "default".
-            </FieldHelp>
-          }
-        >
-          <TextInput id="namespace" value={resource.namespace ?? ''} onChange={(_e, value) => updateField('namespace', value)} isRequired />
+      <FormSection title="General">
+        <FormGroup label="Kind" fieldId="kind">
+          <FormSelect id="kind" value={kind} onChange={(_e, value) => handleKindChange(value)}>
+            {KIND_OPTIONS.map((opt) => (
+              <FormSelectOption key={opt.value} value={opt.value} label={opt.label} />
+            ))}
+          </FormSelect>
         </FormGroup>
-      )}
-      {requiresSubjects(kind) && (
         <FormGroup
-          label="Role reference name"
-          fieldId="roleRefName"
+          label="Name"
+          fieldId="name"
           isRequired
           labelHelp={
-            <FieldHelp label="Role reference name">
-              The name of the existing {kind === 'rolebindings' ? 'Role' : 'ClusterRole'} this binding grants. It
-              must already exist on the cluster.
+            <FieldHelp label="Name">
+              The resource's name. Must be a valid Kubernetes name (lowercase alphanumeric characters, "-", or ".").
             </FieldHelp>
           }
         >
-          <TextInput
-            id="roleRefName"
-            value={resource.roleRef?.name ?? ''}
-            onChange={(_e, value) => updateField('roleRef', { kind: kind === 'rolebindings' ? 'Role' : 'ClusterRole', name: value })}
+          <TextInput id="name" value={resource.name} onChange={(_e, value) => updateField('name', value)} isRequired />
+        </FormGroup>
+        {isNamespaced(kind) && (
+          <FormGroup
+            label="Namespace"
+            fieldId="namespace"
             isRequired
-          />
-        </FormGroup>
+            labelHelp={
+              <FieldHelp label="Namespace">
+                The namespace this resource applies to. Must be an existing namespace on the connected cluster, e.g.
+                "default".
+              </FieldHelp>
+            }
+          >
+            <TextInput id="namespace" value={resource.namespace ?? ''} onChange={(_e, value) => updateField('namespace', value)} isRequired />
+          </FormGroup>
+        )}
+      </FormSection>
+      {requiresSubjects(kind) && (
+        <FormSection title="Role reference">
+          <FormGroup
+            label="Role reference name"
+            fieldId="roleRefName"
+            isRequired
+            labelHelp={
+              <FieldHelp label="Role reference name">
+                The name of the existing {kind === 'rolebindings' ? 'Role' : 'ClusterRole'} this binding grants. It
+                must already exist on the cluster.
+              </FieldHelp>
+            }
+          >
+            <TextInput
+              id="roleRefName"
+              value={resource.roleRef?.name ?? ''}
+              onChange={(_e, value) => updateField('roleRef', { kind: kind === 'rolebindings' ? 'Role' : 'ClusterRole', name: value })}
+              isRequired
+            />
+          </FormGroup>
+        </FormSection>
       )}
       {requiresRules(kind) && (
-        <RuleBuilder
-          rules={resource.rules ?? []}
-          onChange={(rules) => updateField('rules', rules)}
-          groupOptions={catalog.groups}
-          resourceCatalog={catalog.resources}
-          verbOptions={catalog.verbs}
-        />
+        <FormSection title="Rules">
+          <RuleBuilder
+            rules={resource.rules ?? []}
+            onChange={(rules) => updateField('rules', rules)}
+            groupOptions={catalog.groups}
+            resourceCatalog={catalog.resources}
+            verbOptions={catalog.verbs}
+          />
+        </FormSection>
       )}
       {requiresSubjects(kind) && (
-        <SubjectBuilder subjects={resource.subjects ?? []} onChange={(subjects) => updateField('subjects', subjects)} serviceAccounts={serviceAccounts} />
+        <FormSection
+          title={
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              Subjects
+              <FieldHelp label="Subjects">
+                Who this binding grants the role to. Kind: ServiceAccount (pick from the connected namespace), User,
+                or Group. Name: the subject's exact name. Namespace: only needed for ServiceAccount subjects, and
+                must match the ServiceAccount's own namespace.
+              </FieldHelp>
+            </span>
+          }
+        >
+          <SubjectBuilder subjects={resource.subjects ?? []} onChange={(subjects) => updateField('subjects', subjects)} serviceAccounts={serviceAccounts} />
+        </FormSection>
       )}
     </>
   );
@@ -200,13 +240,6 @@ export function CreatePage({ connected }: CreatePageProps) {
         {catalogWarning && <Alert variant="warning" title={catalogWarning} />}
         {serviceAccountsWarning && <Alert variant="warning" title={serviceAccountsWarning} />}
         <Form>
-          <FormGroup label="Kind" fieldId="kind">
-            <FormSelect id="kind" value={kind} onChange={(_e, value) => handleKindChange(value)}>
-              {KIND_OPTIONS.map((opt) => (
-                <FormSelectOption key={opt.value} value={opt.value} label={opt.label} />
-              ))}
-            </FormSelect>
-          </FormGroup>
           <FormYamlSplit
             value={resource}
             onChange={(newResource) => {
@@ -225,6 +258,9 @@ export function CreatePage({ connected }: CreatePageProps) {
             </Button>
             <Button variant="link" onClick={handleDownload}>
               Download YAML
+            </Button>
+            <Button variant="link" icon={<EraserIcon />} onClick={handleReset}>
+              Reset
             </Button>
           </ActionGroup>
         </Form>

@@ -2,11 +2,20 @@
 /* Scoped override: only the masthead bar gets a brand color. Buttons,
    links, active-nav-item, and alerts all keep PatternFly's defaults, so
    destructive/danger semantics stay visually unambiguous from branding. */
-.pf-v6-c-masthead {
-  background-color: #0066cc;
+/*
+ * PatternFly's own glass-theme rule
+ * (":where(.pf-v6-theme-glass) .pf-v6-c-masthead:not(.pf-m-docked)") beats a
+ * plain ".pf-v6-c-masthead" selector on specificity even though it loads
+ * earlier, because ":where()" contributes zero specificity while
+ * ":not(.pf-m-docked)" still counts as a class. Match that specificity (and
+ * add !important as a defensive tie-breaker) so our brand color always wins.
+ */
+.pf-v6-c-masthead,
+.pf-v6-c-masthead:not(.pf-m-docked) {
+  background-color: #0066cc !important;
   color: #ffffff;
 }
 
-.pf-v6-c-masthead .pf-v6-c-brand {
+.pf-v6-c-masthead .pf-v6-c-masthead__brand {
   color: #ffffff;
 }

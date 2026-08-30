@@ -5,6 +5,14 @@ export interface PolicyRule {
   resources: string[];
   verbs: string[];
   resourceNames?: string[];
+  /**
+   * Non-resource HTTP paths (e.g. "/healthz", "/api/*"). Only valid on
+   * ClusterRoles, and mutually exclusive with apiGroups/resources on the
+   * same rule. Not editable via the visual rule builder today; carried
+   * through untouched when a template seeds it, and editable via the YAML
+   * pane.
+   */
+  nonResourceURLs?: string[];
 }
 
 export interface Subject {

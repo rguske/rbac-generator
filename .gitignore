@@ -5,3 +5,4 @@ backend/internal/httpapi/static/dist/*
 !backend/internal/httpapi/static/dist/index.html
 deploy/kustomize/base/secret.yaml
 .superpowers/
+.DS_Store

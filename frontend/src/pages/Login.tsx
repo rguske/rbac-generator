@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { MouseEvent } from 'react';
 import { LoginPage, LoginForm } from '@patternfly/react-core';
 import { login } from '../api/client';
+import logo from '../assets/logo.png';
 
 interface LoginPageContainerProps {
   onLoggedIn: () => void;
@@ -29,7 +30,13 @@ export function LoginPageContainer({ onLoggedIn }: LoginPageContainerProps) {
   };
 
   return (
-    <LoginPage loginTitle="Log in to rbac-generator" textContent="Build and apply Kubernetes RBAC resources.">
+    <LoginPage
+      loginTitle="Log in to RBAC-Generator"
+      textContent="Build and apply Kubernetes RBAC resources."
+      brandImgSrc={logo}
+      brandImgAlt="RBAC-Generator logo"
+      brandImgProps={{ alt: 'RBAC-Generator logo', style: { width: '240px', height: '240px' } }}
+    >
       <LoginForm
         usernameLabel="Username"
         passwordLabel="Password"

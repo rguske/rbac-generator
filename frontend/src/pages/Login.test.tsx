@@ -7,6 +7,16 @@ import * as api from '../api/client';
 vi.mock('../api/client');
 
 describe('LoginPageContainer', () => {
+  it('shows the RBAC-Generator logo', () => {
+    render(<LoginPageContainer onLoggedIn={() => {}} />);
+    expect(screen.getByRole('img', { name: 'RBAC-Generator logo' })).toBeInTheDocument();
+  });
+
+  it('does not render a background image; the page uses a plain, theme-aware color instead', () => {
+    const { container } = render(<LoginPageContainer onLoggedIn={() => {}} />);
+    expect(container.querySelector('.pf-v6-c-background-image')).not.toBeInTheDocument();
+  });
+
   it('calls onLoggedIn after a successful login', async () => {
     vi.spyOn(api, 'login').mockResolvedValue({ authenticated: true });
     const onLoggedIn = vi.fn();

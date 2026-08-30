@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { CreatePage } from './Create';
@@ -80,7 +80,8 @@ describe('CreatePage', () => {
     await waitFor(() => expect(mockGetDiscovery).toHaveBeenCalled());
     // Now the catalog should be loaded, wait a bit more for state to update
     await waitFor(() => screen.getByLabelText('add-resources'), { timeout: 3000 });
-    const options = within(screen.getByLabelText('add-resources')).getAllByRole('option', { name: 'deployments' });
+    fireEvent.click(screen.getByLabelText('add-resources'));
+    const options = screen.getAllByRole('option', { name: 'deployments' });
     expect(options).toHaveLength(1);
   });
 
@@ -94,5 +95,86 @@ describe('CreatePage', () => {
     render(<CreatePage connected={false} />);
     fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'rolebindings' } });
     expect(screen.getByLabelText('Role reference name help')).toBeInTheDocument();
+  });
+
+  it('shows a help tooltip next to the Subjects section on binding kinds', () => {
+    render(<CreatePage connected={false} />);
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'rolebindings' } });
+    expect(screen.getByLabelText('Subjects help')).toBeInTheDocument();
+  });
+
+  it('clears entered field values when Reset is clicked', () => {
+    render(<CreatePage connected={false} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'reader' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Namespace' }), { target: { value: 'default' } });
+
+    fireEvent.click(screen.getByText('Reset'));
+
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Namespace' })).toHaveValue('');
+  });
+
+  it('resets Kind back to Role when Reset is clicked', () => {
+    render(<CreatePage connected={false} />);
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'clusterrolebindings' } });
+    expect(screen.getByTestId('subject-builder')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Reset'));
+
+    expect(screen.getByLabelText('Kind')).toHaveValue('roles');
+    expect(screen.getByTestId('rule-builder')).toBeInTheDocument();
+  });
+
+  it('groups fields into a "General" section', () => {
+    render(<CreatePage connected={false} />);
+    expect(screen.getByText('General')).toBeInTheDocument();
+  });
+
+  it('groups the rule builder into a "Rules" section', () => {
+    render(<CreatePage connected={false} />);
+    expect(screen.getByText('Rules')).toBeInTheDocument();
+    expect(screen.queryByText('Role reference')).not.toBeInTheDocument();
+    expect(screen.queryByText('Subjects')).not.toBeInTheDocument();
+  });
+
+  it('groups the role reference and subjects fields into their own sections for binding kinds', () => {
+    render(<CreatePage connected={false} />);
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'rolebindings' } });
+    expect(screen.getByText('Role reference')).toBeInTheDocument();
+    expect(screen.getByText('Subjects')).toBeInTheDocument();
+    expect(screen.queryByText('Rules')).not.toBeInTheDocument();
+  });
+
+  it('disables Apply again after Reset even if a dry-run had already passed', async () => {
+    vi.spyOn(api, 'dryRun').mockResolvedValue({ status: 'ok' });
+    render(<CreatePage connected />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'reader' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Namespace' }), { target: { value: 'default' } });
+    fireEvent.click(screen.getByText('Preview & Dry-Run'));
+    await waitFor(() => expect(screen.getByText('Apply').closest('button')).not.toBeDisabled());
+
+    fireEvent.click(screen.getByText('Reset'));
+
+    expect(screen.getByText('Apply').closest('button')).toBeDisabled();
+  });
+
+  it('seeds the form from initialKind/initialResource when provided (e.g. from a Template)', () => {
+    render(
+      <CreatePage
+        connected={false}
+        initialKind="clusterroles"
+        initialResource={{ name: 'vm-admin', rules: [{ apiGroups: ['kubevirt.io'], resources: ['virtualmachines'], verbs: ['*'] }] }}
+      />,
+    );
+
+    expect(screen.getByLabelText('Kind')).toHaveValue('clusterroles');
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('vm-admin');
+    expect(screen.getByTestId('multiselect-resources')).toHaveTextContent('virtualmachines');
+  });
+
+  it('seeds the namespace field when initialResource includes one (e.g. a Role template)', () => {
+    render(<CreatePage connected={false} initialKind="roles" initialResource={{ name: 'vm-admin', namespace: 'vms', rules: [] }} />);
+
+    expect(screen.getByRole('textbox', { name: 'Namespace' })).toHaveValue('vms');
   });
 });

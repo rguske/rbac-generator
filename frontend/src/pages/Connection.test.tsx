@@ -30,6 +30,25 @@ describe('ConnectionPage', () => {
     expect(screen.getByText('Connect to a cluster')).toBeInTheDocument();
   });
 
+  it('hints at exporting the current kubeconfig context for users with multiple clusters', () => {
+    render(<ConnectionPage onConnected={() => {}} onDisconnected={() => {}} />);
+    expect(screen.getByText('Managing multiple clusters or contexts?')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('oc config view --raw --minify > kubeconfig.yaml')).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue('kubectl config view --raw --minify > kubeconfig.yaml'),
+    ).toBeInTheDocument();
+  });
+
+  it('copies the oc export command to the clipboard when its copy button is clicked', () => {
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<ConnectionPage onConnected={() => {}} onDisconnected={() => {}} />);
+
+    fireEvent.click(screen.getByLabelText('Copy oc export command'));
+
+    expect(writeText).toHaveBeenCalledWith('oc config view --raw --minify > kubeconfig.yaml');
+  });
+
   it('shows connected details and a Disconnect button when cluster info is provided', () => {
     render(
       <ConnectionPage

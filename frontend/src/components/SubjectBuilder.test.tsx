@@ -24,9 +24,35 @@ describe('SubjectBuilder', () => {
     expect(onChange).toHaveBeenCalledWith([subjects[1]]);
   });
 
-  it('shows a ServiceAccount dropdown populated from the serviceAccounts prop', () => {
+  it('shows a searchable ServiceAccount dropdown populated from the serviceAccounts prop', () => {
     render(<SubjectBuilder subjects={[{ kind: 'ServiceAccount', name: '' }]} onChange={() => {}} serviceAccounts={['builder']} />);
+    fireEvent.click(screen.getByLabelText('subject-name-0'));
     expect(screen.getByRole('option', { name: 'builder' })).toBeInTheDocument();
+  });
+
+  it('filters the ServiceAccount dropdown as the user types a search term', () => {
+    render(
+      <SubjectBuilder
+        subjects={[{ kind: 'ServiceAccount', name: '' }]}
+        onChange={() => {}}
+        serviceAccounts={['builder', 'default', 'deployer']}
+      />,
+    );
+    const input = screen.getByLabelText('subject-name-0');
+    fireEvent.click(input);
+    fireEvent.change(input, { target: { value: 'dep' } });
+    expect(screen.getByRole('option', { name: 'deployer' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'builder' })).not.toBeInTheDocument();
+  });
+
+  it('selects a ServiceAccount from the dropdown', () => {
+    const onChange = vi.fn();
+    render(
+      <SubjectBuilder subjects={[{ kind: 'ServiceAccount', name: '' }]} onChange={onChange} serviceAccounts={['builder']} />,
+    );
+    fireEvent.click(screen.getByLabelText('subject-name-0'));
+    fireEvent.click(screen.getByRole('option', { name: 'builder' }));
+    expect(onChange).toHaveBeenCalledWith([{ kind: 'ServiceAccount', name: 'builder' }]);
   });
 
   it('shows a free-text field for User subjects', () => {
@@ -41,8 +67,4 @@ describe('SubjectBuilder', () => {
     expect(onChange).toHaveBeenCalledWith([{ kind: 'Group', name: 'alice' }]);
   });
 
-  it('shows a help tooltip explaining Kind/Name/Namespace', () => {
-    render(<SubjectBuilder subjects={[]} onChange={() => {}} serviceAccounts={[]} />);
-    expect(screen.getByLabelText('Subjects help')).toBeInTheDocument();
-  });
 });

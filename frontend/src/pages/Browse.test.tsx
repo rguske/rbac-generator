@@ -47,6 +47,23 @@ describe('BrowsePage', () => {
     await waitFor(() => expect(screen.queryByTestId('yaml-drawer')).not.toBeInTheDocument());
   });
 
+  it('copies the YAML to the clipboard when the copy button is clicked', async () => {
+    vi.spyOn(api, 'listResources').mockResolvedValue([{ name: 'reader', namespace: 'default' }]);
+    vi.spyOn(api, 'getResource').mockResolvedValue({ name: 'reader', namespace: 'default', rules: [] });
+    const writeText = vi.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(<BrowsePage connected />);
+    await waitFor(() => screen.getByText('reader'));
+
+    fireEvent.click(screen.getByText('reader'));
+    await waitFor(() => expect(screen.getByTestId('yaml-drawer')).toBeInTheDocument());
+
+    const yamlText = screen.getByTestId('yaml-drawer').textContent;
+    fireEvent.click(screen.getByLabelText('Copy YAML to clipboard'));
+
+    expect(writeText).toHaveBeenCalledWith(yamlText);
+  });
+
   it('closes the drawer when the close button is clicked', async () => {
     vi.spyOn(api, 'listResources').mockResolvedValue([{ name: 'reader', namespace: 'default' }]);
     vi.spyOn(api, 'getResource').mockResolvedValue({ name: 'reader', namespace: 'default', rules: [] });

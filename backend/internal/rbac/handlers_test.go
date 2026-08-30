@@ -114,7 +114,7 @@ func TestHandler_DryRun_DoesNotPersist(t *testing.T) {
 func TestHandler_List_Roles(t *testing.T) {
 	h := NewHandler()
 	cs := fake.NewSimpleClientset()
-	createBody, _ := json.Marshal(CreateRequest{Name: "reader", Namespace: "default", Rules: []PolicyRuleInput{{Verbs: []string{"get"}}}})
+	createBody, _ := json.Marshal(CreateRequest{Name: "reader", Namespace: "default", Rules: []PolicyRuleInput{{Resources: []string{"pods"}, Verbs: []string{"get"}}}})
 	createReq := newRequest(t, http.MethodPost, "/api/rbac/roles", createBody, cs, map[string]string{"kind": "roles"})
 	h.Create(httptest.NewRecorder(), createReq)
 
@@ -150,7 +150,7 @@ func TestHandler_List_Roles(t *testing.T) {
 func TestHandler_Get_Role(t *testing.T) {
 	h := NewHandler()
 	cs := fake.NewSimpleClientset()
-	createBody, _ := json.Marshal(CreateRequest{Name: "reader", Namespace: "default", Rules: []PolicyRuleInput{{Verbs: []string{"get"}}}})
+	createBody, _ := json.Marshal(CreateRequest{Name: "reader", Namespace: "default", Rules: []PolicyRuleInput{{Resources: []string{"pods"}, Verbs: []string{"get"}}}})
 	createReq := newRequest(t, http.MethodPost, "/api/rbac/roles", createBody, cs, map[string]string{"kind": "roles"})
 	h.Create(httptest.NewRecorder(), createReq)
 
@@ -177,7 +177,7 @@ func TestHandler_Get_Role(t *testing.T) {
 func TestHandler_Get_ClusterScoped_NoNamespaceSegment(t *testing.T) {
 	h := NewHandler()
 	cs := fake.NewSimpleClientset()
-	createBody, _ := json.Marshal(CreateRequest{Name: "cluster-reader", Rules: []PolicyRuleInput{{Verbs: []string{"get"}}}})
+	createBody, _ := json.Marshal(CreateRequest{Name: "cluster-reader", Rules: []PolicyRuleInput{{Resources: []string{"nodes"}, Verbs: []string{"get"}}}})
 	createReq := newRequest(t, http.MethodPost, "/api/rbac/clusterroles", createBody, cs, map[string]string{"kind": "clusterroles"})
 	h.Create(httptest.NewRecorder(), createReq)
 

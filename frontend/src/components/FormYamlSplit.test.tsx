@@ -5,8 +5,21 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { FormYamlSplit } from './FormYamlSplit';
 
 vi.mock('@patternfly/react-code-editor', () => ({
-  CodeEditor: ({ code, onChange }: { code: string; onChange: (v: string) => void }) => (
-    <textarea data-testid="mock-code-editor" value={code} onChange={(e) => onChange(e.target.value)} />
+  CodeEditor: ({
+    code,
+    onChange,
+    isDarkTheme,
+  }: {
+    code: string;
+    onChange: (v: string) => void;
+    isDarkTheme?: boolean;
+  }) => (
+    <textarea
+      data-testid="mock-code-editor"
+      data-dark-theme={String(Boolean(isDarkTheme))}
+      value={code}
+      onChange={(e) => onChange(e.target.value)}
+    />
   ),
   Language: { yaml: 'yaml' },
 }));
@@ -25,6 +38,7 @@ describe('FormYamlSplit', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    document.documentElement.classList.remove('pf-v6-theme-dark');
   });
 
   it('renders the form and the YAML editor at the same time', () => {
@@ -33,9 +47,25 @@ describe('FormYamlSplit', () => {
     expect(screen.getByTestId('mock-code-editor')).toBeInTheDocument();
   });
 
+  it('sizes the YAML pane to fill the available viewport height instead of a fixed pixel height', () => {
+    render(<Harness initial={{ name: 'reader' }} />);
+    const pane = screen.getByTestId('yaml-pane');
+    expect(pane.style.height).toContain('100vh');
+    expect(pane.style.minHeight).toBe('400px');
+  });
+
   it('reflects the initial value in the YAML pane', () => {
     render(<Harness initial={{ name: 'reader' }} />);
     expect(screen.getByTestId('mock-code-editor')).toHaveValue('name: reader\n');
+  });
+
+  it('switches the YAML editor theme to match the app-wide dark mode toggle', () => {
+    render(<Harness initial={{ name: 'reader' }} />);
+    expect(screen.getByTestId('mock-code-editor')).toHaveAttribute('data-dark-theme', 'false');
+
+    document.documentElement.classList.add('pf-v6-theme-dark');
+    render(<Harness initial={{ name: 'reader' }} />);
+    expect(screen.getAllByTestId('mock-code-editor')[1]).toHaveAttribute('data-dark-theme', 'true');
   });
 
   it('updates the YAML pane when the form value changes externally', () => {
