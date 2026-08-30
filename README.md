@@ -31,9 +31,9 @@ a server-side dry-run, apply resources directly, and browse existing ones read-o
 
 ## Screenshots
 
-| Login | Create |
-| --- | --- |
-| ![Login page](static/rbac-generator1.png) | ![Create page](static/rbac-generator2.png) |
+| Login | Create | Templates |
+| --- | --- | -- |
+| ![Login page](static/rbac-generator1.png) | ![Create page](static/rbac-generator2.png) | ![Templates](static/rbac-generator3.png) |
 
 ## Authentication
 
