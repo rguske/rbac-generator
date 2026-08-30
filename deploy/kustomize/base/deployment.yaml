@@ -17,6 +17,14 @@ spec:
       containers:
         - name: rbac-generator
           image: quay.io/rguske/rbac-generator:v1.0
+          # The tag above is a mutable version, not an immutable digest, so
+          # a node that already pulled it once will otherwise keep using
+          # its stale local copy even after the tag is updated on the
+          # registry (this bit us: an amd64 node kept a stale arm64-only
+          # v1.0 image cached, causing "exec format error" even after the
+          # registry image was fixed). Always re-checking the registry
+          # avoids that class of bug.
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
