@@ -98,6 +98,12 @@ cd frontend && npm test   # frontend (Vitest)
 
 ## Building the container image
 
+Pre-built images for each release are published at
+[quay.io/rguske/rbac-generator](https://quay.io/repository/rguske/rbac-generator)
+(currently `quay.io/rguske/rbac-generator:v1.0`) — most users can skip this
+section and pull that directly (see "Running the container" below). Build
+your own image only if you're customizing the app:
+
 ```bash
 make image                # builds rbac-generator:v1.0 (VERSION defaults to v1.0)
 make image VERSION=v1.2.3 # or override the tag explicitly for a new release
@@ -110,7 +116,7 @@ masthead) — `latest` is never used, so a running container's version is
 always explicit and reproducible. When cutting a new release, bump the
 version in `frontend/package.json`, the `APP_VERSION` constant in
 `frontend/src/App.tsx`, and `deploy/kustomize/base/deployment.yaml` together
-with the `make image VERSION=...` tag.
+with the `make image VERSION=...` tag and the tag pushed to quay.io.
 
 - `registry.access.redhat.com/ubi9/nodejs-22` — builds the frontend.
 - `registry.access.redhat.com/ubi9/go-toolset:1.25` — builds the Go backend and
@@ -143,8 +149,12 @@ See [Authentication](#authentication) above for what `APP_USERNAME` /
 podman run --rm -p 8080:8080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD_HASH="$(make hash-password PASSWORD=yourpassword)" \
-  rbac-generator:v1.0
+  quay.io/rguske/rbac-generator:v1.0
 ```
+
+(If you built your own image locally instead of pulling the published one,
+swap in `rbac-generator:v1.0` — the tag `make image` produces — for the
+`quay.io/...` image above.)
 
 Then open http://localhost:8080 and log in with `admin` / `yourpassword`
 (or whatever username/password you generated the hash for).
@@ -152,7 +162,10 @@ Then open http://localhost:8080 and log in with `admin` / `yourpassword`
 ## Deploying to OpenShift/Kubernetes
 
 Base manifests live under `deploy/kustomize/base/` (Deployment, Service, Route).
-On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
+The Deployment references the published `quay.io/rguske/rbac-generator:v1.0`
+image, so no build/push step is required — swap the `image:` field in
+`deploy/kustomize/base/deployment.yaml` if you're running your own build
+instead. On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
 `kustomization.yaml` and add your own `Ingress` instead.
 
 1. Copy `deploy/kustomize/base/secret.example.yaml` to

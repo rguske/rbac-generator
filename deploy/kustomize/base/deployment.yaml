@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: rbac-generator
-          image: rbac-generator:v1.0
+          image: quay.io/rguske/rbac-generator:v1.0
           ports:
             - containerPort: 8080
           env:
