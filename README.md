@@ -105,7 +105,8 @@ section and pull that directly (see "Running the container" below). Build
 your own image only if you're customizing the app:
 
 ```bash
-make image                # builds rbac-generator:v1.0 (VERSION defaults to v1.0)
+make image                # builds rbac-generator:v1.0 for linux/amd64 + linux/arm64
+make push                 # pushes that manifest to quay.io/rguske/rbac-generator:v1.0
 make image VERSION=v1.2.3 # or override the tag explicitly for a new release
 ```
 
@@ -117,6 +118,17 @@ always explicit and reproducible. When cutting a new release, bump the
 version in `frontend/package.json`, the `APP_VERSION` constant in
 `frontend/src/App.tsx`, and `deploy/kustomize/base/deployment.yaml` together
 with the `make image VERSION=...` tag and the tag pushed to quay.io.
+
+**Multi-arch matters here.** `make image` builds a single tag that bundles
+both `linux/amd64` and `linux/arm64` variants (a manifest list), controlled
+by the `PLATFORMS` variable (`PLATFORMS ?= linux/amd64,linux/arm64`). This
+is deliberate: `podman build` normally only builds for your machine's own
+architecture, so building on an Apple Silicon Mac (arm64) and pushing that
+straight to a typically-amd64 OpenShift/Kubernetes cluster fails at runtime
+with `exec container process ...: Exec format error` — the node can't
+execute an arm64 binary. Building both architectures into one tag means the
+same `quay.io/rguske/rbac-generator:v1.0` works everywhere; the container
+runtime automatically pulls the variant matching each node.
 
 - `registry.access.redhat.com/ubi9/nodejs-22` — builds the frontend.
 - `registry.access.redhat.com/ubi9/go-toolset:1.25` — builds the Go backend and
