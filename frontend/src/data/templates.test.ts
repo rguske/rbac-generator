@@ -39,6 +39,7 @@ describe('RBAC_TEMPLATES', () => {
         'VirtualMachine-Viewer',
         'Platform-Operator',
         'Network-Engineer',
+        'Storage-Admin',
       ]),
     );
   });
@@ -140,5 +141,45 @@ describe('RBAC_TEMPLATES', () => {
         expect(rule.verbs).toEqual(['get', 'list', 'watch']);
       }
     }
+  });
+
+  it('lets Storage-Admin manage StorageClasses, PersistentVolumes, and VolumeSnapshotClasses/Contents', () => {
+    const template = RBAC_TEMPLATES.find((t) => t.name === 'Storage-Admin')!;
+    const manageVerbs = ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete', 'deletecollection'];
+
+    const snapshotClassRule = template.rules.find(
+      (r) => r.apiGroups.includes('snapshot.storage.k8s.io') && r.resources.includes('volumesnapshotclasses'),
+    );
+    expect(snapshotClassRule).toBeDefined();
+    expect(snapshotClassRule!.resources).toEqual(expect.arrayContaining(['volumesnapshotclasses', 'volumesnapshotcontents']));
+    expect(snapshotClassRule!.verbs).toEqual(expect.arrayContaining(manageVerbs));
+
+    const pvRule = template.rules.find((r) => r.apiGroups.includes('') && r.resources.includes('persistentvolumes'));
+    expect(pvRule).toBeDefined();
+    expect(pvRule!.verbs).toEqual(expect.arrayContaining(manageVerbs));
+
+    const scRule = template.rules.find((r) => r.apiGroups.includes('storage.k8s.io') && r.resources.includes('storageclasses'));
+    expect(scRule).toBeDefined();
+    expect(scRule!.verbs).toEqual(expect.arrayContaining(manageVerbs));
+  });
+
+  it('keeps Storage-Admin read-only on VolumeSnapshots, PersistentVolumeClaims, Pods, and Events', () => {
+    const template = RBAC_TEMPLATES.find((t) => t.name === 'Storage-Admin')!;
+    const readOnly = ['get', 'list', 'watch'];
+
+    const snapshotRule = template.rules.find(
+      (r) => r.apiGroups.includes('snapshot.storage.k8s.io') && r.resources.includes('volumesnapshots'),
+    );
+    expect(snapshotRule).toBeDefined();
+    expect(snapshotRule!.verbs).toEqual(readOnly);
+
+    const coreViewRule = template.rules.find((r) => r.apiGroups.includes('') && r.resources.includes('persistentvolumeclaims'));
+    expect(coreViewRule).toBeDefined();
+    expect(coreViewRule!.resources).toEqual(expect.arrayContaining(['events', 'persistentvolumeclaims']));
+    expect(coreViewRule!.verbs).toEqual(readOnly);
+
+    const podsRule = template.rules.find((r) => r.apiGroups.includes('') && r.resources.includes('pods'));
+    expect(podsRule).toBeDefined();
+    expect(podsRule!.verbs).toEqual(readOnly);
   });
 });

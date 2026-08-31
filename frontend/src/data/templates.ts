@@ -345,4 +345,49 @@ export const RBAC_TEMPLATES: RbacTemplate[] = [
       },
     ],
   },
+  {
+    id: 'storage-admin',
+    name: 'Storage-Admin',
+    description:
+      'Manage StorageClasses, PersistentVolumes, and VolumeSnapshotClasses/Contents cluster-wide. Read-only visibility into VolumeSnapshots, PersistentVolumeClaims, Pods, and Events, since those are typically owned by application namespaces rather than the storage admin.',
+    defaultName: 'storage-admin',
+    rules: [
+      {
+        // VolumeSnapshotClasses and VolumeSnapshotContents are cluster-scoped
+        // storage admin objects - full lifecycle management.
+        apiGroups: ['snapshot.storage.k8s.io'],
+        resources: ['volumesnapshotclasses', 'volumesnapshotcontents'],
+        verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete', 'deletecollection'],
+      },
+      {
+        // VolumeSnapshots are namespaced and usually managed by the
+        // application owner - view only here.
+        apiGroups: ['snapshot.storage.k8s.io'],
+        resources: ['volumesnapshots'],
+        verbs: ['get', 'list', 'watch'],
+      },
+      {
+        apiGroups: [''],
+        resources: ['persistentvolumes'],
+        verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete', 'deletecollection'],
+      },
+      {
+        apiGroups: ['storage.k8s.io'],
+        resources: ['storageclasses'],
+        verbs: ['get', 'list', 'watch', 'create', 'update', 'patch', 'delete', 'deletecollection'],
+      },
+      {
+        // PersistentVolumeClaims and Events - view only, to correlate PVCs
+        // with the PVs backing them without touching application namespaces.
+        apiGroups: [''],
+        resources: ['events', 'persistentvolumeclaims'],
+        verbs: ['get', 'list', 'watch'],
+      },
+      {
+        apiGroups: [''],
+        resources: ['pods'],
+        verbs: ['get', 'list', 'watch'],
+      },
+    ],
+  },
 ];
