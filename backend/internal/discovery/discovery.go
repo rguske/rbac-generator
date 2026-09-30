@@ -121,6 +121,43 @@ func LiveResources(disc k8sdiscovery.DiscoveryInterface) ([]Resource, error) {
 		return nil, err
 	}
 
+	// ServerGroupsAndResources() prefers the newer "aggregated discovery"
+	// wire format when the server supports it (which is the default on
+	// modern Kubernetes/OpenShift). client-go converts that format back into
+	// the legacy APIResourceList shape used above, and that conversion
+	// (convertAPIResource/convertAPISubresource in
+	// k8s.io/client-go/discovery/aggregated_discovery.go) *requires* a
+	// non-empty GroupVersionKind on every resource and subresource — any
+	// entry missing one is silently dropped, with no error surfaced.
+	//
+	// KubeVirt's subresources.kubevirt.io API server (see
+	// https://kubevirt.io/2018/KubeVirt-API-Access-Control.html) reports an
+	// empty GVK ("responseKind": {"group":"","version":"","kind":""}) for
+	// every resource and subresource it serves, since these are pure
+	// action-style endpoints with no backing Go type/Kind. The net effect:
+	// the whole subresources.kubevirt.io group+version list comes back from
+	// ServerGroupsAndResources() with zero resources, even though a raw
+	// `oc get --raw /apis/subresources.kubevirt.io/v1` (and the legacy,
+	// unaggregated per-GroupVersion discovery call below) shows dozens of
+	// real, RBAC-relevant resource names. This is what previously made the
+	// orphan-subresource handling further down in this function a no-op for
+	// that group: it never even saw the data.
+	//
+	// Work around it by falling back to the legacy ServerResourcesForGroupVersion
+	// call — which fetches the group+version's discovery document directly
+	// and isn't subject to that GVK-based filtering — for any list that
+	// aggregated discovery reported as (suspiciously) empty.
+	for i, list := range apiLists {
+		if len(list.APIResources) > 0 {
+			continue
+		}
+		legacy, legacyErr := disc.ServerResourcesForGroupVersion(list.GroupVersion)
+		if legacyErr != nil || legacy == nil || len(legacy.APIResources) == 0 {
+			continue
+		}
+		apiLists[i] = legacy
+	}
+
 	type key struct {
 		group, version, resource string
 	}

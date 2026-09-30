@@ -209,6 +209,86 @@ func TestLiveResources_SurfacesOrphanSubresourcesAsTopLevelResources(t *testing.
 	}
 }
 
+// aggregatedDiscoveryStub wraps a "full" fake discovery client and simulates
+// the real-world divergence between ServerGroupsAndResources() and
+// ServerResourcesForGroupVersion() that client-go exhibits against servers
+// like KubeVirt's subresources.kubevirt.io: ServerGroupsAndResources()
+// prefers the aggregated discovery wire format, whose conversion back to the
+// legacy APIResourceList shape drops any resource with an empty GVK — so a
+// group+version made up entirely of such resources comes back with zero
+// APIResources — while ServerResourcesForGroupVersion() (the legacy,
+// unaggregated per-GroupVersion call) is untouched by that conversion and
+// still returns the real resources. The stock discoveryfake.FakeDiscovery
+// can't model this divergence since both methods just read the same
+// c.Resources field, so this stub overrides only ServerGroupsAndResources()
+// to blank out the chosen group+versions, delegating everything else
+// (including ServerResourcesForGroupVersion) to the wrapped "full" client.
+type aggregatedDiscoveryStub struct {
+	k8sdiscovery.DiscoveryInterface
+	emptyGroupVersions map[string]bool
+}
+
+func (s *aggregatedDiscoveryStub) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	groups, lists, err := s.DiscoveryInterface.ServerGroupsAndResources()
+	out := make([]*metav1.APIResourceList, len(lists))
+	for i, list := range lists {
+		if s.emptyGroupVersions[list.GroupVersion] {
+			out[i] = &metav1.APIResourceList{GroupVersion: list.GroupVersion}
+			continue
+		}
+		out[i] = list
+	}
+	return groups, out, err
+}
+
+func TestLiveResources_FallsBackToLegacyDiscoveryWhenAggregatedDiscoveryDropsEmptyGVKResources(t *testing.T) {
+	// Regression test modeling the real-world root cause behind
+	// https://github.com/rguske/rbac-generator/issues/1 continuing to
+	// reproduce even after the orphan-subresource fix above: KubeVirt's
+	// subresources.kubevirt.io resources all report an empty
+	// GroupVersionKind, so client-go's aggregated-discovery conversion
+	// silently drops every single one of them, leaving
+	// ServerGroupsAndResources() with zero resources for that group+version
+	// before LiveResources ever gets a chance to run its orphan-subresource
+	// handling on them.
+	full := newFakeDiscovery(t, []*metav1.APIResourceList{
+		{
+			GroupVersion: "kubevirt.io/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "virtualmachines", Kind: "VirtualMachine", Namespaced: true},
+			},
+		},
+		{
+			GroupVersion: "subresources.kubevirt.io/v1",
+			APIResources: []metav1.APIResource{
+				// Kind intentionally empty, mirroring real KubeVirt discovery data.
+				{Name: "virtualmachines/start", Kind: "", Namespaced: true},
+				{Name: "virtualmachines/stop", Kind: "", Namespaced: true},
+			},
+		},
+	})
+	disc := &aggregatedDiscoveryStub{
+		DiscoveryInterface: full,
+		emptyGroupVersions: map[string]bool{"subresources.kubevirt.io/v1": true},
+	}
+
+	resources, err := LiveResources(disc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	byGroupResource := map[string]Resource{}
+	for _, r := range resources {
+		byGroupResource[r.Group+"/"+r.Resource] = r
+	}
+
+	for _, name := range []string{"virtualmachines/start", "virtualmachines/stop"} {
+		if _, ok := byGroupResource["subresources.kubevirt.io/"+name]; !ok {
+			t.Fatalf("expected %q to be recovered via the legacy discovery fallback, got %+v", name, resources)
+		}
+	}
+}
+
 func TestLiveResources_MarksCustomResourceGroups(t *testing.T) {
 	disc := newFakeDiscovery(t, []*metav1.APIResourceList{
 		{GroupVersion: "v1", APIResources: []metav1.APIResource{{Name: "pods", Kind: "Pod", Namespaced: true}}},
