@@ -130,6 +130,27 @@ execute an arm64 binary. Building both architectures into one tag means the
 same `quay.io/rguske/rbac-generator:v1.0` works everywhere; the container
 runtime automatically pulls the variant matching each node.
 
+**Building `linux/amd64` on an Apple Silicon Mac uses QEMU emulation for
+that platform**, since your machine can't natively run x86-64 code. This is
+mostly transparent, with one notable exception: `npm run build` (`tsc` +
+`vite`, which shells out to the native `esbuild` binary) can fail with
+```
+qemu: uncaught target signal 11 (Segmentation fault) - core dumped
+```
+This is a known instability in Node's V8 JIT running under QEMU's
+user-mode binary translation — not a bug in this project's code. The
+`Containerfile`'s frontend-build stage works around it by pinning
+`FROM --platform=$BUILDPLATFORM ...`, which forces that stage to always
+build natively (on whatever architecture is actually running `podman
+build`) instead of once per `--platform` target. This is safe because the
+frontend's build output is plain JS/HTML/CSS and doesn't depend on the
+final image's architecture anyway. The Go backend stage is deliberately
+left *unpinned*, so it still builds once per target platform as normal —
+plain, CGO-free Go compilation doesn't hit the same JIT-related QEMU
+crashes, and (at least on the Podman/Buildah versions used here) the
+automatic `TARGETARCH` build arg isn't reliable enough inside a
+BUILDPLATFORM-pinned stage to cross-compile from there instead.
+
 - `registry.access.redhat.com/ubi9/nodejs-22` — builds the frontend.
 - `registry.access.redhat.com/ubi9/go-toolset:1.25` — builds the Go backend and
   embeds the frontend build output via `go:embed`. Pinned to the `1.25` tag so the
