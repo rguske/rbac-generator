@@ -2,14 +2,16 @@
 
 A small tool for building Kubernetes/OpenShift `Role`, `ClusterRole`,
 `RoleBinding`, and `ClusterRoleBinding` resources through a guided PatternFly 6 UI,
-instead of hand-writing YAML. Optionally connects to a live cluster (via a
-pasted/uploaded kubeconfig, held only in memory for the session) to validate with
-a server-side dry-run, apply resources directly, and browse existing ones read-only.
+instead of hand-writing YAML.
+
+Optionally connects to a live cluster via a
+pasted/uploaded kubeconfig (held only in memory for the session). It provides validation
+with a server-side dry-run, apply resources directly, and browse existing ones read-only.
 
 ## Features
 
 - Guided rule builder for all four RBAC kinds, with cascading, searchable
-  apiGroups → resources → subResources → verbs dropdowns, backed by live API
+  `apiGroups` → `resources` → `subResources` → `verbs` dropdowns, backed by live API
   discovery (with Custom Resources called out separately from built-ins) or a
   built-in static catalog when offline.
 - Persistent, always-on split-pane Form ⇄ YAML view: edit either side and the
@@ -18,11 +20,11 @@ a server-side dry-run, apply resources directly, and browse existing ones read-o
 - **Templates**: one-click persona starting points (Cluster-Admin,
   Cluster-Viewer, VirtualMachine-Admin, VirtualMachine-Viewer,
   Platform-Operator, Network-Engineer) that pre-fill the Create page as
-  either a ClusterRole or a namespaced Role — nothing is applied until you
+  either a `ClusterRole` or a namespaced `Role` — nothing is applied until you
   review, dry-run, and confirm.
-- When connected to a cluster: live API discovery, ServiceAccount lookup,
+- When connected to a cluster: live API discovery, `ServiceAccount` lookup,
   server-side dry-run validation, and direct apply.
-- Read-only Browse view for existing Roles/ClusterRoles/RoleBindings/ClusterRoleBindings,
+- Read-only browse view for existing `Roles`/`ClusterRoles`/`RoleBindings`/`ClusterRoleBindings`,
   with one-click copy of the resource's YAML.
 - Light/dark mode toggle, with the YAML editor's theme following it.
 - Simple built-in login (PatternFly6 `LoginPage`) backed by a single shared,
@@ -38,13 +40,13 @@ a server-side dry-run, apply resources directly, and browse existing ones read-o
 ## Authentication
 
 The app has a single username/password, set via the `APP_USERNAME` and
-`APP_PASSWORD_HASH` environment variables — there's no user database. The
-plaintext password itself is never stored or passed to the app; instead you
+`APP_PASSWORD_HASH` environment variables. The plaintext password itself is
+never stored or passed to the app, instead you
 generate a [bcrypt](https://en.wikipedia.org/wiki/Bcrypt) hash of it once,
 and give the app *that hash*.
 
 **1. Generate the hash.** `make hash-password` runs a small Go helper
-(`backend/cmd/hashpw`) that prints a bcrypt hash of the password you pass in:
+(`backend/cmd/hashpw`) that prints a `bcrypt` hash of the password you pass in:
 
 ```bash
 make hash-password PASSWORD=yourpassword
@@ -52,7 +54,7 @@ make hash-password PASSWORD=yourpassword
 
 This prints something like:
 
-```
+```shell
 $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 ```
 
@@ -61,18 +63,16 @@ ways in this README — they do the same thing:
 
 - **Explicit (do this if the one-liner below is confusing):** run the
   command above, copy the hash it prints, and paste it in yourself:
-  ```bash
-  export APP_PASSWORD_HASH='$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
-  ```
-- **One-liner shortcut:** `$(...)` is a shell feature called *command
-  substitution* — it runs whatever command is inside the parentheses and
-  replaces `$(...)` with that command's printed output. So
-  `APP_PASSWORD_HASH="$(make hash-password PASSWORD=yourpassword)"` runs step
-  1 and immediately stores its printed hash into `APP_PASSWORD_HASH` for you,
-  without a manual copy/paste:
-  ```bash
-  export APP_PASSWORD_HASH="$(make hash-password PASSWORD=yourpassword)"
-  ```
+
+```bash
+export APP_PASSWORD_HASH='$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
+```
+
+- One-liner shortcut
+
+```bash
+export APP_PASSWORD_HASH="$(make hash-password PASSWORD=yourpassword)"
+```
 
 Either way works — use whichever you find clearer. `APP_USERNAME` is just a
 plain string (e.g. `admin`), no hashing needed.
@@ -80,12 +80,20 @@ plain string (e.g. `admin`), no hashing needed.
 ## Local development
 
 ```bash
-# Backend
 export APP_USERNAME=admin
-export APP_PASSWORD_HASH="$(make hash-password PASSWORD=yourpassword)"
-cd backend && go run ./cmd/server
+```
 
-# Frontend (separate terminal)
+```bash
+export APP_PASSWORD_HASH="$(make hash-password PASSWORD=yourpassword)"
+```
+
+```bash
+cd backend && go run ./cmd/server
+```
+
+## Frontend (separate terminal)
+
+```bash
 cd frontend && npm run dev
 ```
 
@@ -93,6 +101,9 @@ cd frontend && npm run dev
 
 ```bash
 make test          # backend (Go)
+```
+
+```bash
 cd frontend && npm test   # frontend (Vitest)
 ```
 
@@ -100,56 +111,8 @@ cd frontend && npm test   # frontend (Vitest)
 
 Pre-built images for each release are published at
 [quay.io/rguske/rbac-generator](https://quay.io/repository/rguske/rbac-generator)
-(currently `quay.io/rguske/rbac-generator:v1.0`) — most users can skip this
-section and pull that directly (see "Running the container" below). Build
-your own image only if you're customizing the app:
-
-```bash
-make image                # builds rbac-generator:v1.0 for linux/amd64 + linux/arm64
-make push                 # pushes that manifest to quay.io/rguske/rbac-generator:v1.0
-make image VERSION=v1.2.3 # or override the tag explicitly for a new release
-```
-
-This builds `rbac-generator:v1.0` using a multi-stage `Containerfile` where
-every stage is a Red Hat UBI9 image. The image tag always matches the app's
-release version (`frontend/package.json` and the version badge in the
-masthead) — `latest` is never used, so a running container's version is
-always explicit and reproducible. When cutting a new release, bump the
-version in `frontend/package.json`, the `APP_VERSION` constant in
-`frontend/src/App.tsx`, and `deploy/kustomize/base/deployment.yaml` together
-with the `make image VERSION=...` tag and the tag pushed to quay.io.
-
-**Multi-arch matters here.** `make image` builds a single tag that bundles
-both `linux/amd64` and `linux/arm64` variants (a manifest list), controlled
-by the `PLATFORMS` variable (`PLATFORMS ?= linux/amd64,linux/arm64`). This
-is deliberate: `podman build` normally only builds for your machine's own
-architecture, so building on an Apple Silicon Mac (arm64) and pushing that
-straight to a typically-amd64 OpenShift/Kubernetes cluster fails at runtime
-with `exec container process ...: Exec format error` — the node can't
-execute an arm64 binary. Building both architectures into one tag means the
-same `quay.io/rguske/rbac-generator:v1.0` works everywhere; the container
-runtime automatically pulls the variant matching each node.
-
-**Building `linux/amd64` on an Apple Silicon Mac uses QEMU emulation for
-that platform**, since your machine can't natively run x86-64 code. This is
-mostly transparent, with one notable exception: `npm run build` (`tsc` +
-`vite`, which shells out to the native `esbuild` binary) can fail with
-```
-qemu: uncaught target signal 11 (Segmentation fault) - core dumped
-```
-This is a known instability in Node's V8 JIT running under QEMU's
-user-mode binary translation — not a bug in this project's code. The
-`Containerfile`'s frontend-build stage works around it by pinning
-`FROM --platform=$BUILDPLATFORM ...`, which forces that stage to always
-build natively (on whatever architecture is actually running `podman
-build`) instead of once per `--platform` target. This is safe because the
-frontend's build output is plain JS/HTML/CSS and doesn't depend on the
-final image's architecture anyway. The Go backend stage is deliberately
-left *unpinned*, so it still builds once per target platform as normal —
-plain, CGO-free Go compilation doesn't hit the same JIT-related QEMU
-crashes, and (at least on the Podman/Buildah versions used here) the
-automatic `TARGETARCH` build arg isn't reliable enough inside a
-BUILDPLATFORM-pinned stage to cross-compile from there instead.
+(currently `quay.io/rguske/rbac-generator:v1.0`). Most users can skip this
+section and pull that directly (see "Running the container" below).
 
 - `registry.access.redhat.com/ubi9/nodejs-22` — builds the frontend.
 - `registry.access.redhat.com/ubi9/go-toolset:1.25` — builds the Go backend and
@@ -163,6 +126,33 @@ To use an enterprise/authenticated mirror instead of the free `registry.access.r
 images, swap each `FROM` line to the equivalent `registry.redhat.io/ubi9/...` image
 (requires `podman login registry.redhat.io` first).
 
+Build your own image only if you're customizing the app:
+
+```bash
+make image                # builds rbac-generator:v1.0 for linux/amd64 + linux/arm64
+make push                 # pushes that manifest to quay.io/rguske/rbac-generator:v1.0
+make image VERSION=v1.2.3 # or override the tag explicitly for a new release
+```
+
+This builds `rbac-generator:v1.0` using a multi-stage `Containerfile` where
+every stage is a Red Hat UBI9 image. The image tag always matches the app's
+release version (`frontend/package.json` and the version badge in the
+masthead). `latest` is never used, so a running container's version is
+always explicit and reproducible. When cutting a new release, bump the
+version in `frontend/package.json`, the `APP_VERSION` constant in
+`frontend/src/App.tsx`, and `deploy/kustomize/base/deployment.yaml` together
+with the `make image VERSION=...` tag and the tag pushed to quay.io.
+
+**Multi-arch matters here.** `make image` builds a single tag that bundles
+both `linux/amd64` and `linux/arm64` variants (a manifest list), controlled
+by the `PLATFORMS` variable (`PLATFORMS ?= linux/amd64,linux/arm64`). This
+is deliberate. `podman build` normally only builds for your machine's own
+architecture, so building on an Apple Silicon Mac (arm64) and pushing that
+straight to a typically-amd64 OpenShift/Kubernetes cluster fails at runtime
+with `exec container process ...: Exec format error`. The node can't
+execute an arm64 binary. Building both architectures into one tag means the
+same `quay.io/rguske/rbac-generator:v1.0` works everywhere.
+
 ## Running the container
 
 `make hash-password` (used below) isn't a standalone binary — it's a
@@ -172,6 +162,9 @@ it:
 
 ```bash
 git clone https://github.com/rguske/rbac-generator.git
+```
+
+```bash
 cd rbac-generator
 ```
 
@@ -185,9 +178,8 @@ podman run --rm -p 8080:8080 \
   quay.io/rguske/rbac-generator:v1.0
 ```
 
-(If you built your own image locally instead of pulling the published one,
-swap in `rbac-generator:v1.0` — the tag `make image` produces — for the
-`quay.io/...` image above.)
+If you built your own image locally instead of pulling the published one,
+swap in `rbac-generator:v1.0`.
 
 Then open http://localhost:8080 and log in with `admin` / `yourpassword`
 (or whatever username/password you generated the hash for).
@@ -196,7 +188,7 @@ Then open http://localhost:8080 and log in with `admin` / `yourpassword`
 
 Base manifests live under `deploy/kustomize/base/` (Deployment, Service, Route).
 The Deployment references the published `quay.io/rguske/rbac-generator:v1.0`
-image, so no build/push step is required — swap the `image:` field in
+image, so no build/push step is required. Swap the `image:` field in
 `deploy/kustomize/base/deployment.yaml` if you're running your own build
 instead. On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
 `kustomization.yaml` and add your own `Ingress` instead.
@@ -214,8 +206,7 @@ instead. On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
 - This tool assumes a trusted network / internal deployment. It is not intended
   to be exposed directly to the public internet without an additional
   reverse-proxy/auth layer.
-- v1 does not support editing or deleting existing RBAC resources — Browse is
-  read-only.
+- **Browse is read-only** - v1 does not support editing or deleting existing RBAC resources.
 
 ## Design & implementation history
 
