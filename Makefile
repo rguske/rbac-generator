@@ -28,6 +28,16 @@ hash-password:
 	@cd backend && go run ./cmd/hashpw "$(PASSWORD)"
 
 image:
+	# `podman build --platform a,b --manifest <name>` APPENDS platform
+	# images to <name> if it already exists locally; it does not replace
+	# stale per-platform entries from a previous build. Left unremoved,
+	# a rebuild leaves both the old and new image for a given platform in
+	# the same manifest list, and which one a puller/runtime picks for that
+	# platform is not guaranteed to be the newest - this silently ran a
+	# stale amd64 image on the cluster despite the manifest list itself
+	# having a fresh digest. Always start from a clean, single-entry-per-
+	# platform manifest list.
+	-podman manifest rm rbac-generator:$(VERSION) >/dev/null 2>&1
 	podman build --platform $(PLATFORMS) --manifest rbac-generator:$(VERSION) -f Containerfile .
 
 push: image
