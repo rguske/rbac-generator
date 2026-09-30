@@ -149,6 +149,66 @@ func TestLiveResources_GroupsSubResourceEvenIfListedBeforeParent(t *testing.T) {
 	}
 }
 
+func TestLiveResources_SurfacesOrphanSubresourcesAsTopLevelResources(t *testing.T) {
+	// Regression test for https://github.com/rguske/rbac-generator/issues/1:
+	// KubeVirt exposes actions like console/vnc/start/stop under a dedicated
+	// "subresources.kubevirt.io" API group that never has a bare parent
+	// resource (e.g. "virtualmachineinstances") of its own — the parent only
+	// exists in the separate "kubevirt.io" group. These entries must not be
+	// silently dropped.
+	disc := newFakeDiscovery(t, []*metav1.APIResourceList{
+		{
+			GroupVersion: "kubevirt.io/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "virtualmachines", Kind: "VirtualMachine", Namespaced: true},
+				{Name: "virtualmachineinstances", Kind: "VirtualMachineInstance", Namespaced: true},
+			},
+		},
+		{
+			GroupVersion: "subresources.kubevirt.io/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "virtualmachineinstances/console", Kind: "VirtualMachineInstance", Namespaced: true},
+				{Name: "virtualmachineinstances/vnc", Kind: "VirtualMachineInstance", Namespaced: true},
+				{Name: "virtualmachines/start", Kind: "VirtualMachine", Namespaced: true},
+			},
+		},
+	})
+
+	resources, err := LiveResources(disc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	byGroupResource := map[string]Resource{}
+	for _, r := range resources {
+		byGroupResource[r.Group+"/"+r.Resource] = r
+	}
+
+	for _, name := range []string{
+		"virtualmachineinstances/console",
+		"virtualmachineinstances/vnc",
+		"virtualmachines/start",
+	} {
+		r, ok := byGroupResource["subresources.kubevirt.io/"+name]
+		if !ok {
+			t.Fatalf("expected %q to be surfaced as its own resource under subresources.kubevirt.io, got %+v", name, resources)
+		}
+		if len(r.SubResources) != 0 {
+			t.Errorf("expected %q to have no SubResources of its own, got %v", name, r.SubResources)
+		}
+		if !r.IsCustomResource {
+			t.Errorf("expected %q to be classified as a custom resource", name)
+		}
+	}
+
+	// The real kubevirt.io parent resources must be unaffected: no bogus
+	// SubResources leaked onto them from the unrelated subresources group.
+	vmi, ok := byGroupResource["kubevirt.io/virtualmachineinstances"]
+	if !ok || len(vmi.SubResources) != 0 {
+		t.Errorf("expected kubevirt.io/virtualmachineinstances to have no SubResources, got %+v", vmi)
+	}
+}
+
 func TestLiveResources_MarksCustomResourceGroups(t *testing.T) {
 	disc := newFakeDiscovery(t, []*metav1.APIResourceList{
 		{GroupVersion: "v1", APIResources: []metav1.APIResource{{Name: "pods", Kind: "Pod", Namespaced: true}}},

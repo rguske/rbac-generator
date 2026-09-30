@@ -103,6 +103,18 @@ func IsBuiltinGroup(group string) bool {
 // LiveResources queries cluster API discovery for the current apiGroups and
 // resources. Subresources (e.g. pods/status) are grouped onto their parent
 // resource's SubResources field instead of being skipped.
+//
+// Some API groups (notably KubeVirt's subresources.kubevirt.io, which backs
+// actions like virtualmachineinstances/console and virtualmachines/start;
+// see https://kubevirt.io/2018/KubeVirt-API-Access-Control.html) only ever
+// expose slashed, action-style resource names and never a bare parent
+// resource in that same group+version — the parent (e.g.
+// "virtualmachineinstances") lives in a completely different group
+// (kubevirt.io). Such entries have no parent to attach to, so they are kept
+// as their own top-level, selectable Resource using the full slashed name
+// instead of being dropped, since that is exactly how RBAC rules reference
+// them anyway (apiGroups: ["subresources.kubevirt.io"], resources:
+// ["virtualmachineinstances/console"]).
 func LiveResources(disc k8sdiscovery.DiscoveryInterface) ([]Resource, error) {
 	_, apiLists, err := disc.ServerGroupsAndResources()
 	if len(apiLists) == 0 {
@@ -143,7 +155,19 @@ func LiveResources(disc k8sdiscovery.DiscoveryInterface) ([]Resource, error) {
 			}
 			if idx, ok := index[key{gv.Group, gv.Version, parent}]; ok {
 				out[idx].SubResources = append(out[idx].SubResources, sub)
+				continue
 			}
+			// No parent resource exists in this group+version, so there's
+			// nothing to attach this subresource to. Surface it as its own
+			// resource instead of silently dropping it.
+			out = append(out, Resource{
+				Group:            gv.Group,
+				Version:          gv.Version,
+				Resource:         res.Name,
+				Kind:             res.Kind,
+				Namespaced:       res.Namespaced,
+				IsCustomResource: !IsBuiltinGroup(gv.Group),
+			})
 		}
 	}
 	return out, nil
