@@ -212,34 +212,22 @@ instead. On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
 
 ### v1.1
 
-- **Namespace discovery (closes [#2](https://github.com/rguske/rbac-generator/issues/2)):**
-  the Namespace field on the Create, Templates, and Browse pages is now a
-  searchable dropdown populated from the live cluster's real namespaces
-  instead of a free-text box, while still letting you type a custom value
-  (e.g. a namespace that doesn't exist yet) if you need to.
-- **Fixed `subresources.kubevirt.io` (and any other empty-GVK API group) not
-  appearing in discovery (closes [#1](https://github.com/rguske/rbac-generator/issues/1)):**
-  client-go's aggregated discovery silently drops every resource in an API
-  group whose server reports an empty GroupVersionKind, which is how
-  KubeVirt's `subresources.kubevirt.io` group is designed. Discovery now
-  falls back to legacy, per-GroupVersion discovery for any group+version
-  that aggregated discovery reports as empty, recovering those resources.
-- Added a **Storage-Admin** persona template on the Templates page.
-- Fixed a `podman build --platform ... --manifest <name>` footgun where
-  rebuilding an image appended to an existing local manifest list instead of
-  replacing stale per-platform entries, which could cause a cluster to keep
-  running old code after a "successful" rebuild/push. `make image` now
-  removes any existing local manifest before rebuilding.
-- Fixed a QEMU segfault when cross-building the `linux/amd64` image on
-  Apple Silicon (arm64) hosts.
+- Namespace fields on Create, Templates, and Browse are now searchable
+  dropdowns of real cluster namespaces, with custom values still allowed
+  (closes [#2](https://github.com/rguske/rbac-generator/issues/2)).
+- Fixed discovery dropping `subresources.kubevirt.io` and other empty-GVK
+  API groups entirely, via a legacy-discovery fallback
+  (closes [#1](https://github.com/rguske/rbac-generator/issues/1)).
+- Added a **Storage-Admin** persona template.
+- Fixed `make image` appending stale platform images to an existing local
+  manifest list instead of replacing them.
+- Fixed a QEMU segfault cross-building `linux/amd64` on Apple Silicon.
 
 ### v1.0
 
-- Initial release: guided Role/ClusterRole/RoleBinding/ClusterRoleBinding
-  builder with a persistent Form ⇄ YAML split-pane view, live cluster
-  connection via kubeconfig, API discovery-backed rule builder, Templates
-  page with starter personas, read-only Browse view, PatternFly6 UI with
-  light/dark mode, and a single-image Containerfile built on Red Hat UBI9.
+- Initial release: guided RBAC builder with Form ⇄ YAML split-pane view,
+  live cluster connection, discovery-backed rule builder, Templates,
+  read-only Browse, and PatternFly6 light/dark UI.
 
 ## Design & implementation history
 
