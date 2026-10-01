@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -26,14 +27,23 @@ type ConnectResponse struct {
 
 type buildClientsetFunc func(string) (kubernetes.Interface, *rest.Config, string, error)
 type verifyFunc func(context.Context, kubernetes.Interface) (string, error)
+type buildDynamicFunc func(*rest.Config) (dynamic.Interface, error)
 
 type Handler struct {
 	buildClientset buildClientsetFunc
 	verify         verifyFunc
+	buildDynamic   buildDynamicFunc
 }
 
 func NewHandler() *Handler {
-	return &Handler{buildClientset: k8sclient.BuildClientset, verify: k8sclient.VerifyConnection}
+	return &Handler{buildClientset: k8sclient.BuildClientset, verify: k8sclient.VerifyConnection, buildDynamic: buildDynamicClient}
+}
+
+// buildDynamicClient adapts dynamic.NewForConfig's concrete *dynamic.DynamicClient
+// return type to the buildDynamicFunc interface-returning signature, so it can
+// be swapped out with a fake in tests.
+func buildDynamicClient(cfg *rest.Config) (dynamic.Interface, error) {
+	return dynamic.NewForConfig(cfg)
 }
 
 func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +72,14 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	dynClient, err := h.buildDynamic(restCfg)
+	if err != nil {
+		httpjson.WriteError(w, http.StatusBadGateway, "could not build dynamic client: "+err.Error())
+		return
+	}
+
 	sess.Clientset = cs
+	sess.DynamicClient = dynClient
 	sess.ClusterInfo = &session.ClusterInfo{Server: restCfg.Host, Version: version, CurrentContext: currentContext}
 
 	httpjson.WriteJSON(w, http.StatusOK, ConnectResponse{Server: restCfg.Host, Version: version, CurrentContext: currentContext})
@@ -75,6 +92,7 @@ func (h *Handler) Disconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sess.Clientset = nil
+	sess.DynamicClient = nil
 	sess.ClusterInfo = nil
 	w.WriteHeader(http.StatusNoContent)
 }

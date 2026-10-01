@@ -1,6 +1,6 @@
 // frontend/src/components/SubjectBuilder.tsx
 import { useRef } from 'react';
-import { Button, FormSelect, FormSelectOption, TextInput } from '@patternfly/react-core';
+import { Button, FormSelect, FormSelectOption } from '@patternfly/react-core';
 import { MinusCircleIcon, PlusCircleIcon } from '@patternfly/react-icons';
 import type { Subject } from '../types/rbac';
 import { SearchableSelect } from './SearchableSelect';
@@ -9,11 +9,13 @@ interface SubjectBuilderProps {
   subjects: Subject[];
   onChange: (subjects: Subject[]) => void;
   serviceAccounts: string[];
+  users: string[];
+  groups: string[];
 }
 
 const KIND_OPTIONS: Subject['kind'][] = ['ServiceAccount', 'User', 'Group'];
 
-export function SubjectBuilder({ subjects, onChange, serviceAccounts }: SubjectBuilderProps) {
+export function SubjectBuilder({ subjects, onChange, serviceAccounts, users, groups }: SubjectBuilderProps) {
   const objectKeysRef = useRef(new WeakMap<object, number>());
   const nextKeyRef = useRef(0);
 
@@ -39,6 +41,18 @@ export function SubjectBuilder({ subjects, onChange, serviceAccounts }: SubjectB
     onChange(subjects.filter((_, i) => i !== index));
   };
 
+  const optionsForKind: Record<Subject['kind'], string[]> = {
+    ServiceAccount: serviceAccounts,
+    User: users,
+    Group: groups,
+  };
+
+  const placeholderForKind: Record<Subject['kind'], string> = {
+    ServiceAccount: 'Select a ServiceAccount',
+    User: 'Select or type a User name',
+    Group: 'Select or type a Group name',
+  };
+
   return (
     <div data-testid="subject-builder">
       {subjects.map((subject, index) => (
@@ -48,22 +62,14 @@ export function SubjectBuilder({ subjects, onChange, serviceAccounts }: SubjectB
               <FormSelectOption key={kind} value={kind} label={kind} />
             ))}
           </FormSelect>
-          {subject.kind === 'ServiceAccount' ? (
-            <SearchableSelect
-              ariaLabel={`subject-name-${index}`}
-              placeholder="Select a ServiceAccount"
-              value={subject.name}
-              options={serviceAccounts.map((sa) => ({ value: sa, label: sa }))}
-              onChange={(value) => updateSubject(index, 'name', value)}
-            />
-          ) : (
-            <TextInput
-              aria-label={`subject-name-${index}`}
-              value={subject.name}
-              onChange={(_e, value) => updateSubject(index, 'name', value)}
-              placeholder="Name"
-            />
-          )}
+          <SearchableSelect
+            ariaLabel={`subject-name-${index}`}
+            placeholder={placeholderForKind[subject.kind]}
+            value={subject.name}
+            options={optionsForKind[subject.kind].map((name) => ({ value: name, label: name }))}
+            onChange={(value) => updateSubject(index, 'name', value)}
+            allowCustomValue={subject.kind !== 'ServiceAccount'}
+          />
           <Button variant="plain" aria-label={`remove-subject-${index}`} onClick={() => removeSubject(index)}>
             <MinusCircleIcon />
           </Button>

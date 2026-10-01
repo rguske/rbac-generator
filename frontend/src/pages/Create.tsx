@@ -20,7 +20,7 @@ import { SubjectBuilder } from '../components/SubjectBuilder';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { FormYamlSplit } from '../components/FormYamlSplit';
 import { FieldHelp } from '../components/FieldHelp';
-import { createResource, dryRun, getDiscoveryResources, getNamespaces, getServiceAccounts } from '../api/client';
+import { createResource, dryRun, getDiscoveryResources, getGroups, getNamespaces, getServiceAccounts, getUsers } from '../api/client';
 import { isNamespaced, requiresRules, requiresSubjects } from '../types/rbac';
 import type { Kind, RbacResource, DiscoveryResource } from '../types/rbac';
 import { toYaml } from '../lib/yamlSync';
@@ -50,12 +50,16 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
   });
   const [serviceAccounts, setServiceAccounts] = useState<string[]>([]);
   const [namespaces, setNamespaces] = useState<string[]>([]);
+  const [users, setUsers] = useState<string[]>([]);
+  const [groups, setGroups] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ result?: unknown; error?: string } | null>(null);
   const [dryRunPassed, setDryRunPassed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogWarning, setCatalogWarning] = useState<string | null>(null);
   const [serviceAccountsWarning, setServiceAccountsWarning] = useState<string | null>(null);
   const [namespacesWarning, setNamespacesWarning] = useState<string | null>(null);
+  const [usersWarning, setUsersWarning] = useState<string | null>(null);
+  const [groupsWarning, setGroupsWarning] = useState<string | null>(null);
 
   useEffect(() => {
     getDiscoveryResources()
@@ -109,6 +113,40 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
         });
     }
   }, [connected, resource.namespace, kind]);
+
+  useEffect(() => {
+    if (!connected || !requiresSubjects(kind)) {
+      setUsers([]);
+      setUsersWarning(null);
+      return;
+    }
+    getUsers()
+      .then((data) => {
+        setUsers(data);
+        setUsersWarning(null);
+      })
+      .catch(() => {
+        setUsers([]);
+        setUsersWarning('Failed to load users from the cluster (likely a non-OpenShift cluster, or no permission to list them); type the User name manually.');
+      });
+  }, [connected, kind]);
+
+  useEffect(() => {
+    if (!connected || !requiresSubjects(kind)) {
+      setGroups([]);
+      setGroupsWarning(null);
+      return;
+    }
+    getGroups()
+      .then((data) => {
+        setGroups(data);
+        setGroupsWarning(null);
+      })
+      .catch(() => {
+        setGroups([]);
+        setGroupsWarning('Failed to load groups from the cluster (likely a non-OpenShift cluster, or no permission to list them); type the Group name manually.');
+      });
+  }, [connected, kind]);
 
   const handleKindChange = (value: string) => {
     setKind(value as Kind);
@@ -249,13 +287,20 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
               Subjects
               <FieldHelp label="Subjects">
                 Who this binding grants the role to. Kind: ServiceAccount (pick from the connected namespace), User,
-                or Group. Name: the subject's exact name. Namespace: only needed for ServiceAccount subjects, and
+                or Group (both pick from the cluster's real OpenShift users/groups when available, or type a name
+                manually). Name: the subject's exact name. Namespace: only needed for ServiceAccount subjects, and
                 must match the ServiceAccount's own namespace.
               </FieldHelp>
             </span>
           }
         >
-          <SubjectBuilder subjects={resource.subjects ?? []} onChange={(subjects) => updateField('subjects', subjects)} serviceAccounts={serviceAccounts} />
+          <SubjectBuilder
+            subjects={resource.subjects ?? []}
+            onChange={(subjects) => updateField('subjects', subjects)}
+            serviceAccounts={serviceAccounts}
+            users={users}
+            groups={groups}
+          />
         </FormSection>
       )}
     </>
@@ -268,6 +313,8 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
         {catalogWarning && <Alert variant="warning" title={catalogWarning} />}
         {namespacesWarning && <Alert variant="warning" title={namespacesWarning} />}
         {serviceAccountsWarning && <Alert variant="warning" title={serviceAccountsWarning} />}
+        {usersWarning && <Alert variant="warning" title={usersWarning} />}
+        {groupsWarning && <Alert variant="warning" title={groupsWarning} />}
         <Form>
           <FormYamlSplit
             value={resource}

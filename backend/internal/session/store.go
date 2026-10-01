@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -25,6 +26,10 @@ type Session struct {
 	ID            string
 	Authenticated bool
 	Clientset     kubernetes.Interface
+	// DynamicClient is used for API types without a typed client, such as
+	// OpenShift's user.openshift.io/v1 User and Group resources (see
+	// internal/discovery's Users/Groups handlers).
+	DynamicClient dynamic.Interface
 	ClusterInfo   *ClusterInfo
 	LastAccess    time.Time
 }

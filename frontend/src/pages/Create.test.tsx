@@ -14,7 +14,16 @@ describe('CreatePage', () => {
   beforeEach(() => {
     vi.spyOn(api, 'getDiscoveryResources').mockResolvedValue({ source: 'static', resources: [], verbs: ['get', 'list'] });
     vi.spyOn(api, 'getNamespaces').mockResolvedValue([]);
+    vi.spyOn(api, 'getUsers').mockResolvedValue([]);
+    vi.spyOn(api, 'getGroups').mockResolvedValue([]);
   });
+
+  /** Switches to ClusterRoleBinding (which requires subjects), adds a subject row, and sets its kind. */
+  const addSubjectOfKind = (subjectKind: 'User' | 'Group') => {
+    fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'clusterrolebindings' } });
+    fireEvent.click(screen.getByText('Add subject'));
+    fireEvent.change(screen.getByLabelText('subject-kind-0'), { target: { value: subjectKind } });
+  };
 
   /** Types text into the Namespace field and commits it, like a user would. */
   const setNamespace = (value: string) => {
@@ -251,6 +260,87 @@ describe('CreatePage', () => {
       const namespaceInput = screen.getByLabelText('Namespace');
       fireEvent.click(namespaceInput);
       expect(screen.queryByRole('option', { name: 'default' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('user/group discovery', () => {
+    it('does not fetch users or groups for a kind that does not require subjects', () => {
+      const getUsersSpy = vi.mocked(api.getUsers);
+      const getGroupsSpy = vi.mocked(api.getGroups);
+      getUsersSpy.mockClear();
+      getGroupsSpy.mockClear();
+      render(<CreatePage connected />);
+      expect(getUsersSpy).not.toHaveBeenCalled();
+      expect(getGroupsSpy).not.toHaveBeenCalled();
+    });
+
+    it('fetches users and groups once switched to a binding kind, and offers them in the Subjects dropdown', async () => {
+      vi.mocked(api.getUsers).mockResolvedValue(['alice', 'bob']);
+      vi.mocked(api.getGroups).mockResolvedValue(['cluster-admins']);
+      render(<CreatePage connected />);
+
+      addSubjectOfKind('User');
+      await waitFor(() => expect(api.getUsers).toHaveBeenCalled());
+      fireEvent.click(screen.getByLabelText('subject-name-0'));
+
+      expect(await screen.findByRole('option', { name: 'alice' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'bob' })).toBeInTheDocument();
+    });
+
+    it('selecting a discovered User sets it on the subject', async () => {
+      vi.mocked(api.getUsers).mockResolvedValue(['alice']);
+      render(<CreatePage connected />);
+
+      addSubjectOfKind('User');
+      await waitFor(() => expect(api.getUsers).toHaveBeenCalled());
+      fireEvent.click(screen.getByLabelText('subject-name-0'));
+      fireEvent.click(await screen.findByRole('option', { name: 'alice' }));
+
+      expect(screen.getByLabelText('subject-name-0')).toHaveValue('alice');
+    });
+
+    it('still allows typing a custom Group name not returned by discovery', async () => {
+      vi.mocked(api.getGroups).mockResolvedValue(['cluster-admins']);
+      render(<CreatePage connected />);
+
+      addSubjectOfKind('Group');
+      await waitFor(() => expect(api.getGroups).toHaveBeenCalled());
+      const nameInput = screen.getByLabelText('subject-name-0');
+      fireEvent.click(nameInput);
+      fireEvent.change(nameInput, { target: { value: 'not-yet-synced' } });
+      fireEvent.click(await screen.findByRole('option', { name: 'Use "not-yet-synced"' }));
+
+      expect(screen.getByLabelText('subject-name-0')).toHaveValue('not-yet-synced');
+    });
+
+    it('shows warnings and still allows manual entry when user/group discovery fails', async () => {
+      vi.mocked(api.getUsers).mockRejectedValue(new Error('no such API group'));
+      vi.mocked(api.getGroups).mockRejectedValue(new Error('no such API group'));
+      render(<CreatePage connected />);
+
+      addSubjectOfKind('User');
+
+      expect(await screen.findByText(/Failed to load users/)).toBeInTheDocument();
+      expect(await screen.findByText(/Failed to load groups/)).toBeInTheDocument();
+      const nameInput = screen.getByLabelText('subject-name-0');
+      fireEvent.click(nameInput);
+      fireEvent.change(nameInput, { target: { value: 'alice' } });
+      fireEvent.click(await screen.findByRole('option', { name: 'Use "alice"' }));
+      expect(nameInput).toHaveValue('alice');
+    });
+
+    it('refetches users/groups after switching away to a non-subjects kind and back', async () => {
+      const getUsersSpy = vi.mocked(api.getUsers).mockResolvedValue(['alice']);
+      getUsersSpy.mockClear();
+      render(<CreatePage connected />);
+
+      addSubjectOfKind('User');
+      await waitFor(() => expect(getUsersSpy).toHaveBeenCalledTimes(1));
+
+      fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'roles' } });
+      fireEvent.change(screen.getByLabelText('Kind'), { target: { value: 'clusterrolebindings' } });
+
+      await waitFor(() => expect(getUsersSpy).toHaveBeenCalledTimes(2));
     });
   });
 });
