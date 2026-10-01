@@ -24,6 +24,16 @@ interface SearchableSelectProps {
   options: SearchableSelectOption[];
   onChange: (value: string) => void;
   isDisabled?: boolean;
+  /**
+   * When true, lets the user commit arbitrary typed text as the value
+   * (via Enter, or by clicking a synthesized "Use "<text>"" option) instead
+   * of being restricted to the provided options list. Useful for
+   * discovery-backed fields that must still work when discovery returns
+   * nothing or fails (e.g. the connected identity lacks list permission) -
+   * see the Namespace field on the Create page. Defaults to false, which
+   * preserves the original strict "pick from the list only" behavior.
+   */
+  allowCustomValue?: boolean;
 }
 
 /**
@@ -33,7 +43,7 @@ interface SearchableSelectProps {
  * elsewhere, or pressing Escape closes the list; typing re-opens it and
  * filters by a case-insensitive substring match against each option's label.
  */
-export function SearchableSelect({ ariaLabel, placeholder, value, options, onChange, isDisabled }: SearchableSelectProps) {
+export function SearchableSelect({ ariaLabel, placeholder, value, options, onChange, isDisabled, allowCustomValue }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filterText, setFilterText] = useState('');
 
@@ -44,13 +54,20 @@ export function SearchableSelect({ ariaLabel, placeholder, value, options, onCha
     setFilterText('');
   }, [value]);
 
-  const selectedLabel = options.find((option) => option.value === value)?.label ?? '';
+  // Fall back to the raw value itself when it isn't in the options list, so
+  // a custom/typed value (or one from a not-yet-loaded or failed discovery
+  // fetch) still displays correctly instead of appearing blank.
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? value;
   const displayValue = isOpen ? filterText : selectedLabel;
 
   const normalizedFilter = filterText.trim().toLowerCase();
   const filteredOptions = normalizedFilter === ''
     ? options
     : options.filter((option) => option.label.toLowerCase().includes(normalizedFilter));
+
+  const trimmedFilter = filterText.trim();
+  const hasExactMatch = options.some((option) => option.value.toLowerCase() === trimmedFilter.toLowerCase());
+  const showCustomOption = Boolean(allowCustomValue) && trimmedFilter !== '' && !hasExactMatch;
 
   const selectOption = (optionValue: string) => {
     onChange(optionValue);
@@ -66,8 +83,13 @@ export function SearchableSelect({ ariaLabel, placeholder, value, options, onCha
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
+      // Prefer an existing match over the synthesized custom option, so
+      // e.g. typing "defa" with "default" in the list selects "default"
+      // rather than committing the literal text "defa".
       if (filteredOptions.length > 0) {
         selectOption(filteredOptions[0].value);
+      } else if (showCustomOption) {
+        selectOption(trimmedFilter);
       }
     } else if (event.key === 'Escape') {
       setIsOpen(false);
@@ -119,14 +141,21 @@ export function SearchableSelect({ ariaLabel, placeholder, value, options, onCha
       )}
     >
       <SelectList>
-        {filteredOptions.length === 0 ? (
+        {filteredOptions.length === 0 && !showCustomOption ? (
           <SelectOption isDisabled>No results found</SelectOption>
         ) : (
-          filteredOptions.map((option) => (
-            <SelectOption key={option.value} value={option.value}>
-              {option.label}
-            </SelectOption>
-          ))
+          <>
+            {filteredOptions.map((option) => (
+              <SelectOption key={option.value} value={option.value}>
+                {option.label}
+              </SelectOption>
+            ))}
+            {showCustomOption && (
+              <SelectOption key="__custom__" value={trimmedFilter}>
+                Use &quot;{trimmedFilter}&quot;
+              </SelectOption>
+            )}
+          </>
         )}
       </SelectList>
     </Select>

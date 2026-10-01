@@ -17,9 +17,10 @@ import {
 import { EraserIcon } from '@patternfly/react-icons';
 import { RuleBuilder } from '../components/RuleBuilder';
 import { SubjectBuilder } from '../components/SubjectBuilder';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { FormYamlSplit } from '../components/FormYamlSplit';
 import { FieldHelp } from '../components/FieldHelp';
-import { createResource, dryRun, getDiscoveryResources, getServiceAccounts } from '../api/client';
+import { createResource, dryRun, getDiscoveryResources, getNamespaces, getServiceAccounts } from '../api/client';
 import { isNamespaced, requiresRules, requiresSubjects } from '../types/rbac';
 import type { Kind, RbacResource, DiscoveryResource } from '../types/rbac';
 import { toYaml } from '../lib/yamlSync';
@@ -48,11 +49,13 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
     verbs: [],
   });
   const [serviceAccounts, setServiceAccounts] = useState<string[]>([]);
+  const [namespaces, setNamespaces] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ result?: unknown; error?: string } | null>(null);
   const [dryRunPassed, setDryRunPassed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogWarning, setCatalogWarning] = useState<string | null>(null);
   const [serviceAccountsWarning, setServiceAccountsWarning] = useState<string | null>(null);
+  const [namespacesWarning, setNamespacesWarning] = useState<string | null>(null);
 
   useEffect(() => {
     getDiscoveryResources()
@@ -74,6 +77,23 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
         setCatalogWarning(null);
       })
       .catch(() => setCatalogWarning('Failed to load the resource catalog; autocomplete suggestions will be unavailable.'));
+  }, [connected]);
+
+  useEffect(() => {
+    if (!connected) {
+      setNamespaces([]);
+      setNamespacesWarning(null);
+      return;
+    }
+    getNamespaces()
+      .then((data) => {
+        setNamespaces(data);
+        setNamespacesWarning(null);
+      })
+      .catch(() => {
+        setNamespaces([]);
+        setNamespacesWarning('Failed to load namespaces from the cluster; type the namespace name manually.');
+      });
   }, [connected]);
 
   useEffect(() => {
@@ -172,12 +192,20 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
             isRequired
             labelHelp={
               <FieldHelp label="Namespace">
-                The namespace this resource applies to. Must be an existing namespace on the connected cluster, e.g.
-                "default".
+                The namespace this resource applies to. Once connected, pick from the cluster's actual namespaces, or
+                type a name directly (useful if it doesn't exist yet, or the connected identity can't list
+                namespaces).
               </FieldHelp>
             }
           >
-            <TextInput id="namespace" value={resource.namespace ?? ''} onChange={(_e, value) => updateField('namespace', value)} isRequired />
+            <SearchableSelect
+              ariaLabel="Namespace"
+              placeholder="Select or type a namespace"
+              value={resource.namespace ?? ''}
+              options={namespaces.map((ns) => ({ value: ns, label: ns }))}
+              onChange={(value) => updateField('namespace', value)}
+              allowCustomValue
+            />
           </FormGroup>
         )}
       </FormSection>
@@ -238,6 +266,7 @@ export function CreatePage({ connected, initialKind, initialResource }: CreatePa
       <CardBody>
         {error && <Alert variant="danger" title={error} />}
         {catalogWarning && <Alert variant="warning" title={catalogWarning} />}
+        {namespacesWarning && <Alert variant="warning" title={namespacesWarning} />}
         {serviceAccountsWarning && <Alert variant="warning" title={serviceAccountsWarning} />}
         <Form>
           <FormYamlSplit

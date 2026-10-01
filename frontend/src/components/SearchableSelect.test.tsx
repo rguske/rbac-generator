@@ -94,4 +94,76 @@ describe('SearchableSelect', () => {
     expect(screen.getByRole('option', { name: 'pods' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'pods/log' })).toBeInTheDocument();
   });
+
+  it("falls back to displaying the raw value when it isn't in the options list", () => {
+    render(<SearchableSelect ariaLabel="namespace" placeholder="Select a namespace" value="custom-ns" options={OPTIONS} onChange={() => {}} />);
+    expect(screen.getByLabelText('namespace')).toHaveValue('custom-ns');
+  });
+
+  describe('allowCustomValue', () => {
+    it('does not offer a custom option by default (allowCustomValue unset)', () => {
+      render(<SearchableSelect ariaLabel="namespace" placeholder="Select a namespace" value="" options={OPTIONS} onChange={() => {}} />);
+      const input = screen.getByLabelText('namespace');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'brand-new-ns' } });
+      expect(screen.queryByText('Use "brand-new-ns"')).not.toBeInTheDocument();
+      expect(screen.getByText('No results found')).toBeInTheDocument();
+    });
+
+    it('offers a "Use <text>" option for text that matches nothing when allowCustomValue is set', () => {
+      render(
+        <SearchableSelect ariaLabel="namespace" placeholder="Select a namespace" value="" options={OPTIONS} onChange={() => {}} allowCustomValue />,
+      );
+      const input = screen.getByLabelText('namespace');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'brand-new-ns' } });
+      expect(screen.getByText('Use "brand-new-ns"')).toBeInTheDocument();
+    });
+
+    it('commits the custom value on Enter when nothing matches', () => {
+      const onChange = vi.fn();
+      render(
+        <SearchableSelect ariaLabel="namespace" placeholder="Select a namespace" value="" options={OPTIONS} onChange={onChange} allowCustomValue />,
+      );
+      const input = screen.getByLabelText('namespace');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'brand-new-ns' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onChange).toHaveBeenCalledWith('brand-new-ns');
+    });
+
+    it('commits the custom value when its "Use <text>" option is clicked', () => {
+      const onChange = vi.fn();
+      render(
+        <SearchableSelect ariaLabel="namespace" placeholder="Select a namespace" value="" options={OPTIONS} onChange={onChange} allowCustomValue />,
+      );
+      const input = screen.getByLabelText('namespace');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'brand-new-ns' } });
+      fireEvent.click(screen.getByText('Use "brand-new-ns"'));
+      expect(onChange).toHaveBeenCalledWith('brand-new-ns');
+    });
+
+    it('prefers selecting an existing partial match over the custom option on Enter', () => {
+      const onChange = vi.fn();
+      render(
+        <SearchableSelect ariaLabel="add-resources" placeholder="Add resource..." value="" options={OPTIONS} onChange={onChange} allowCustomValue />,
+      );
+      const input = screen.getByLabelText('add-resources');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'depl' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onChange).toHaveBeenCalledWith('deployments');
+    });
+
+    it('does not offer a custom option when the typed text exactly matches an existing option', () => {
+      render(
+        <SearchableSelect ariaLabel="add-resources" placeholder="Add resource..." value="" options={OPTIONS} onChange={() => {}} allowCustomValue />,
+      );
+      const input = screen.getByLabelText('add-resources');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'pods' } });
+      expect(screen.queryByText('Use "pods"')).not.toBeInTheDocument();
+    });
+  });
 });
