@@ -16,13 +16,13 @@ import {
   DrawerPanelContent,
   FormSelect,
   FormSelectOption,
-  TextInput,
   Toolbar,
   ToolbarContent,
   ToolbarItem,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { getResource, listResources } from '../api/client';
+import { SearchableSelect } from '../components/SearchableSelect';
+import { getNamespaces, getResource, listResources } from '../api/client';
 import { toYaml } from '../lib/yamlSync';
 import { isNamespaced } from '../types/rbac';
 import type { Kind, RbacResource } from '../types/rbac';
@@ -41,6 +41,8 @@ interface BrowsePageProps {
 export function BrowsePage({ connected }: BrowsePageProps) {
   const [kind, setKind] = useState<Kind>('roles');
   const [namespace, setNamespace] = useState('');
+  const [namespaces, setNamespaces] = useState<string[]>([]);
+  const [namespacesWarning, setNamespacesWarning] = useState<string | null>(null);
   const [items, setItems] = useState<RbacResource[]>([]);
   const [selected, setSelected] = useState<RbacResource | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +58,23 @@ export function BrowsePage({ connected }: BrowsePageProps) {
       .then(setItems)
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load resources'));
   }, [connected, kind, namespace]);
+
+  useEffect(() => {
+    if (!connected) {
+      setNamespaces([]);
+      setNamespacesWarning(null);
+      return;
+    }
+    getNamespaces()
+      .then((data) => {
+        setNamespaces(data);
+        setNamespacesWarning(null);
+      })
+      .catch(() => {
+        setNamespaces([]);
+        setNamespacesWarning('Failed to load namespaces from the cluster; type the namespace name manually.');
+      });
+  }, [connected]);
 
   const openDetail = async (item: RbacResource) => {
     try {
@@ -115,6 +134,7 @@ export function BrowsePage({ connected }: BrowsePageProps) {
           <Card>
             <CardBody>
               {error && <Alert variant="danger" title={error} />}
+              {namespacesWarning && <Alert variant="warning" title={namespacesWarning} />}
               <Toolbar>
                 <ToolbarContent>
                   <ToolbarItem>
@@ -126,11 +146,13 @@ export function BrowsePage({ connected }: BrowsePageProps) {
                   </ToolbarItem>
                   {isNamespaced(kind) && (
                     <ToolbarItem>
-                      <TextInput
-                        aria-label="Namespace filter"
+                      <SearchableSelect
+                        ariaLabel="Namespace filter"
                         placeholder="Filter by namespace"
                         value={namespace}
-                        onChange={(_e, value) => setNamespace(value)}
+                        options={namespaces.map((ns) => ({ value: ns, label: ns }))}
+                        onChange={setNamespace}
+                        allowCustomValue
                       />
                     </ToolbarItem>
                   )}

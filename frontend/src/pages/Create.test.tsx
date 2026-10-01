@@ -13,7 +13,16 @@ vi.mock('../components/FormYamlSplit', () => ({
 describe('CreatePage', () => {
   beforeEach(() => {
     vi.spyOn(api, 'getDiscoveryResources').mockResolvedValue({ source: 'static', resources: [], verbs: ['get', 'list'] });
+    vi.spyOn(api, 'getNamespaces').mockResolvedValue([]);
   });
+
+  /** Types text into the Namespace field and commits it, like a user would. */
+  const setNamespace = (value: string) => {
+    const namespaceInput = screen.getByLabelText('Namespace');
+    fireEvent.click(namespaceInput);
+    fireEvent.change(namespaceInput, { target: { value } });
+    fireEvent.keyDown(namespaceInput, { key: 'Enter' });
+  };
 
   it('disables Dry-Run and Apply when not connected', () => {
     render(<CreatePage connected={false} />);
@@ -26,10 +35,9 @@ describe('CreatePage', () => {
     render(<CreatePage connected />);
 
     const nameInput = screen.getByRole('textbox', { name: 'Name' });
-    const namespaceInput = screen.getByRole('textbox', { name: 'Namespace' });
-    
+
     fireEvent.change(nameInput, { target: { value: 'reader' } });
-    fireEvent.change(namespaceInput, { target: { value: 'default' } });
+    setNamespace('default');
     fireEvent.click(screen.getByText('Preview & Dry-Run'));
 
     await waitFor(() => expect(screen.getByText('Apply').closest('button')).not.toBeDisabled());
@@ -42,10 +50,9 @@ describe('CreatePage', () => {
     render(<CreatePage connected />);
 
     const nameInput = screen.getByRole('textbox', { name: 'Name' });
-    const namespaceInput = screen.getByRole('textbox', { name: 'Namespace' });
-    
+
     fireEvent.change(nameInput, { target: { value: 'reader' } });
-    fireEvent.change(namespaceInput, { target: { value: 'default' } });
+    setNamespace('default');
     fireEvent.click(screen.getByText('Preview & Dry-Run'));
     await waitFor(() => expect(screen.getByText('Apply').closest('button')).not.toBeDisabled());
 
@@ -106,12 +113,12 @@ describe('CreatePage', () => {
   it('clears entered field values when Reset is clicked', () => {
     render(<CreatePage connected={false} />);
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'reader' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Namespace' }), { target: { value: 'default' } });
+    setNamespace('default');
 
     fireEvent.click(screen.getByText('Reset'));
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('');
-    expect(screen.getByRole('textbox', { name: 'Namespace' })).toHaveValue('');
+    expect(screen.getByLabelText('Namespace')).toHaveValue('');
   });
 
   it('resets Kind back to Role when Reset is clicked', () => {
@@ -149,7 +156,7 @@ describe('CreatePage', () => {
     vi.spyOn(api, 'dryRun').mockResolvedValue({ status: 'ok' });
     render(<CreatePage connected />);
     fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'reader' } });
-    fireEvent.change(screen.getByRole('textbox', { name: 'Namespace' }), { target: { value: 'default' } });
+    setNamespace('default');
     fireEvent.click(screen.getByText('Preview & Dry-Run'));
     await waitFor(() => expect(screen.getByText('Apply').closest('button')).not.toBeDisabled());
 
@@ -175,6 +182,75 @@ describe('CreatePage', () => {
   it('seeds the namespace field when initialResource includes one (e.g. a Role template)', () => {
     render(<CreatePage connected={false} initialKind="roles" initialResource={{ name: 'vm-admin', namespace: 'vms', rules: [] }} />);
 
-    expect(screen.getByRole('textbox', { name: 'Namespace' })).toHaveValue('vms');
+    expect(screen.getByLabelText('Namespace')).toHaveValue('vms');
+  });
+
+  describe('namespace discovery', () => {
+    it('does not fetch namespaces while disconnected', () => {
+      const getNamespacesSpy = vi.mocked(api.getNamespaces);
+      getNamespacesSpy.mockClear();
+      render(<CreatePage connected={false} />);
+      expect(getNamespacesSpy).not.toHaveBeenCalled();
+    });
+
+    it('fetches namespaces once connected and offers them in the Namespace dropdown', async () => {
+      vi.mocked(api.getNamespaces).mockResolvedValue(['default', 'kube-system', 'my-app']);
+      render(<CreatePage connected />);
+
+      const namespaceInput = await screen.findByLabelText('Namespace');
+      await waitFor(() => expect(api.getNamespaces).toHaveBeenCalled());
+      fireEvent.click(namespaceInput);
+
+      expect(await screen.findByRole('option', { name: 'default' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'kube-system' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'my-app' })).toBeInTheDocument();
+    });
+
+    it('selecting a discovered namespace sets it on the resource', async () => {
+      vi.mocked(api.getNamespaces).mockResolvedValue(['default', 'my-app']);
+      vi.spyOn(api, 'dryRun').mockResolvedValue({ status: 'ok' });
+      render(<CreatePage connected />);
+
+      const namespaceInput = await screen.findByLabelText('Namespace');
+      await waitFor(() => expect(api.getNamespaces).toHaveBeenCalled());
+      fireEvent.click(namespaceInput);
+      fireEvent.click(await screen.findByRole('option', { name: 'my-app' }));
+
+      fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'reader' } });
+      fireEvent.click(screen.getByText('Preview & Dry-Run'));
+
+      await waitFor(() => expect(api.dryRun).toHaveBeenCalledWith('roles', expect.objectContaining({ namespace: 'my-app' })));
+    });
+
+    it('still allows typing a namespace not returned by discovery', async () => {
+      vi.mocked(api.getNamespaces).mockResolvedValue(['default']);
+      render(<CreatePage connected />);
+
+      await waitFor(() => expect(api.getNamespaces).toHaveBeenCalled());
+      setNamespace('not-yet-created');
+
+      expect(screen.getByLabelText('Namespace')).toHaveValue('not-yet-created');
+    });
+
+    it('shows a warning and still allows manual entry when namespace discovery fails', async () => {
+      vi.mocked(api.getNamespaces).mockRejectedValue(new Error('forbidden'));
+      render(<CreatePage connected />);
+
+      expect(await screen.findByText(/Failed to load namespaces/)).toBeInTheDocument();
+      setNamespace('default');
+      expect(screen.getByLabelText('Namespace')).toHaveValue('default');
+    });
+
+    it('clears the loaded namespace list when the connection is dropped', async () => {
+      vi.mocked(api.getNamespaces).mockResolvedValue(['default']);
+      const { rerender } = render(<CreatePage connected />);
+      await waitFor(() => expect(api.getNamespaces).toHaveBeenCalled());
+
+      rerender(<CreatePage connected={false} />);
+
+      const namespaceInput = screen.getByLabelText('Namespace');
+      fireEvent.click(namespaceInput);
+      expect(screen.queryByRole('option', { name: 'default' })).not.toBeInTheDocument();
+    });
   });
 });

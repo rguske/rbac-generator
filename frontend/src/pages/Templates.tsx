@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   Button,
   Card,
   CardBody,
@@ -7,14 +8,16 @@ import {
   CardTitle,
   Label,
   LabelGroup,
-  TextInput,
 } from '@patternfly/react-core';
 import { Gallery, GalleryItem } from '@patternfly/react-core';
+import { SearchableSelect } from '../components/SearchableSelect';
+import { getNamespaces } from '../api/client';
 import type { Kind, RbacResource } from '../types/rbac';
 import { RBAC_TEMPLATES } from '../data/templates';
 import type { RbacTemplate } from '../data/templates';
 
 interface TemplatesPageProps {
+  connected: boolean;
   onUseTemplate: (kind: Kind, resource: RbacResource) => void;
 }
 
@@ -39,7 +42,13 @@ function colorForGroup(group: string): LabelColor | 'red' | 'blue' {
   return GROUP_COLOR_PALETTE[hash % GROUP_COLOR_PALETTE.length];
 }
 
-function TemplateCard({ template, onUseTemplate }: { template: RbacTemplate; onUseTemplate: TemplatesPageProps['onUseTemplate'] }) {
+interface TemplateCardProps {
+  template: RbacTemplate;
+  onUseTemplate: TemplatesPageProps['onUseTemplate'];
+  namespaces: string[];
+}
+
+function TemplateCard({ template, onUseTemplate, namespaces }: TemplateCardProps) {
   const [namespace, setNamespace] = useState('');
 
   const ruleSummary = Array.from(
@@ -78,11 +87,13 @@ function TemplateCard({ template, onUseTemplate }: { template: RbacTemplate; onU
             Use as ClusterRole
           </Button>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <TextInput
-              aria-label={`${template.name} namespace`}
+            <SearchableSelect
+              ariaLabel={`${template.name} namespace`}
               placeholder="Namespace"
               value={namespace}
-              onChange={(_e, value) => setNamespace(value)}
+              options={namespaces.map((ns) => ({ value: ns, label: ns }))}
+              onChange={setNamespace}
+              allowCustomValue
             />
             <Button variant="secondary" onClick={useAsRole} isDisabled={!namespace.trim()}>
               Use as Role
@@ -94,10 +105,31 @@ function TemplateCard({ template, onUseTemplate }: { template: RbacTemplate; onU
   );
 }
 
-export function TemplatesPage({ onUseTemplate }: TemplatesPageProps) {
+export function TemplatesPage({ connected, onUseTemplate }: TemplatesPageProps) {
+  const [namespaces, setNamespaces] = useState<string[]>([]);
+  const [namespacesWarning, setNamespacesWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!connected) {
+      setNamespaces([]);
+      setNamespacesWarning(null);
+      return;
+    }
+    getNamespaces()
+      .then((data) => {
+        setNamespaces(data);
+        setNamespacesWarning(null);
+      })
+      .catch(() => {
+        setNamespaces([]);
+        setNamespacesWarning('Failed to load namespaces from the cluster; type the namespace name manually.');
+      });
+  }, [connected]);
+
   return (
     <Card>
       <CardBody>
+        {namespacesWarning && <Alert variant="warning" title={namespacesWarning} />}
         <p style={{ marginBottom: '1rem' }}>
           Start from a pre-built persona instead of building rules from scratch. Selecting a template opens the Create
           page with the name and rules already filled in — nothing is applied until you dry-run and Apply there.
@@ -105,7 +137,7 @@ export function TemplatesPage({ onUseTemplate }: TemplatesPageProps) {
         <Gallery hasGutter minWidths={{ default: '300px' }}>
           {RBAC_TEMPLATES.map((template) => (
             <GalleryItem key={template.id}>
-              <TemplateCard template={template} onUseTemplate={onUseTemplate} />
+              <TemplateCard template={template} onUseTemplate={onUseTemplate} namespaces={namespaces} />
             </GalleryItem>
           ))}
         </Gallery>

@@ -8,6 +8,7 @@ vi.mock('../api/client');
 describe('BrowsePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(api, 'getNamespaces').mockResolvedValue([]);
   });
   it('lists resources for the selected kind', async () => {
     vi.spyOn(api, 'listResources').mockResolvedValue([{ name: 'reader', namespace: 'default' }]);
@@ -76,5 +77,65 @@ describe('BrowsePage', () => {
     fireEvent.click(screen.getByLabelText('Close drawer panel'));
 
     await waitFor(() => expect(screen.queryByTestId('yaml-drawer')).not.toBeInTheDocument());
+  });
+
+  describe('namespace discovery', () => {
+    it('does not fetch namespaces while disconnected', () => {
+      render(<BrowsePage connected={false} />);
+      expect(api.getNamespaces).not.toHaveBeenCalled();
+    });
+
+    it('fetches namespaces once connected and offers them in the namespace filter dropdown', async () => {
+      vi.spyOn(api, 'listResources').mockResolvedValue([]);
+      vi.spyOn(api, 'getNamespaces').mockResolvedValue(['default', 'kube-system']);
+      render(<BrowsePage connected />);
+      await waitFor(() => expect(api.getNamespaces).toHaveBeenCalled());
+
+      fireEvent.click(screen.getByLabelText('Namespace filter'));
+
+      expect(await screen.findByRole('option', { name: 'default' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'kube-system' })).toBeInTheDocument();
+    });
+
+    it('selecting a discovered namespace filters the resource list', async () => {
+      const listResourcesSpy = vi.spyOn(api, 'listResources').mockResolvedValue([]);
+      vi.spyOn(api, 'getNamespaces').mockResolvedValue(['default', 'kube-system']);
+      render(<BrowsePage connected />);
+      await waitFor(() => expect(api.getNamespaces).toHaveBeenCalled());
+
+      fireEvent.click(screen.getByLabelText('Namespace filter'));
+      fireEvent.click(await screen.findByRole('option', { name: 'kube-system' }));
+
+      await waitFor(() => expect(listResourcesSpy).toHaveBeenCalledWith('roles', 'kube-system'));
+    });
+
+    it('still allows typing a namespace not returned by discovery', async () => {
+      vi.spyOn(api, 'listResources').mockResolvedValue([]);
+      vi.spyOn(api, 'getNamespaces').mockResolvedValue(['default']);
+      render(<BrowsePage connected />);
+      await waitFor(() => expect(api.getNamespaces).toHaveBeenCalled());
+
+      const input = screen.getByLabelText('Namespace filter');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'not-yet-created' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      expect(screen.getByLabelText('Namespace filter')).toHaveValue('not-yet-created');
+    });
+
+    it('shows a warning and still allows manual entry when namespace discovery fails', async () => {
+      vi.spyOn(api, 'listResources').mockResolvedValue([]);
+      vi.spyOn(api, 'getNamespaces').mockRejectedValue(new Error('forbidden'));
+      render(<BrowsePage connected />);
+
+      expect(await screen.findByText(/Failed to load namespaces/)).toBeInTheDocument();
+
+      const input = screen.getByLabelText('Namespace filter');
+      fireEvent.click(input);
+      fireEvent.change(input, { target: { value: 'default' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+
+      expect(screen.getByLabelText('Namespace filter')).toHaveValue('default');
+    });
   });
 });
