@@ -51,6 +51,14 @@ func NewRouter(deps Deps) http.Handler {
 			r.Get("/", deps.Discovery.Namespaces)
 			r.Get("/{namespace}/serviceaccounts", deps.Discovery.ServiceAccounts)
 		})
+		r.Route("/api/users", func(r chi.Router) {
+			r.Use(auth.Middleware(deps.Store))
+			r.Get("/", deps.Discovery.Users)
+		})
+		r.Route("/api/groups", func(r chi.Router) {
+			r.Use(auth.Middleware(deps.Store))
+			r.Get("/", deps.Discovery.Groups)
+		})
 	}
 
 	if deps.RBAC != nil {

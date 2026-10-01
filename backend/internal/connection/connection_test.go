@@ -9,9 +9,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"k8s.io/client-go/dynamic"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/rest"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"rbac-generator/internal/session"
 )
@@ -31,6 +35,14 @@ func fakeVerifyFail(_ context.Context, _ kubernetes.Interface) (string, error) {
 	return "", errors.New("unreachable")
 }
 
+func fakeBuildDynamicOK(_ *rest.Config) (dynamic.Interface, error) {
+	return dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()), nil
+}
+
+func fakeBuildDynamicFail(_ *rest.Config) (dynamic.Interface, error) {
+	return nil, errors.New("boom")
+}
+
 func requestWithSession(body []byte) (*http.Request, *session.Session) {
 	sess := &session.Session{ID: "s1", Authenticated: true}
 	req := httptest.NewRequest(http.MethodPost, "/api/connection", bytes.NewReader(body))
@@ -38,7 +50,7 @@ func requestWithSession(body []byte) (*http.Request, *session.Session) {
 }
 
 func TestConnect_Success(t *testing.T) {
-	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyOK}
+	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyOK, buildDynamic: fakeBuildDynamicOK}
 	body, _ := json.Marshal(ConnectRequest{Kubeconfig: "good"})
 	req, sess := requestWithSession(body)
 	rec := httptest.NewRecorder()
@@ -57,7 +69,7 @@ func TestConnect_Success(t *testing.T) {
 }
 
 func TestConnect_InvalidKubeconfig(t *testing.T) {
-	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyOK}
+	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyOK, buildDynamic: fakeBuildDynamicOK}
 	body, _ := json.Marshal(ConnectRequest{Kubeconfig: "bad"})
 	req, _ := requestWithSession(body)
 	rec := httptest.NewRecorder()
@@ -70,7 +82,7 @@ func TestConnect_InvalidKubeconfig(t *testing.T) {
 }
 
 func TestConnect_UnreachableCluster(t *testing.T) {
-	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyFail}
+	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyFail, buildDynamic: fakeBuildDynamicOK}
 	body, _ := json.Marshal(ConnectRequest{Kubeconfig: "good"})
 	req, _ := requestWithSession(body)
 	rec := httptest.NewRecorder()
@@ -82,9 +94,31 @@ func TestConnect_UnreachableCluster(t *testing.T) {
 	}
 }
 
+func TestConnect_DynamicClientBuildFails(t *testing.T) {
+	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyOK, buildDynamic: fakeBuildDynamicFail}
+	body, _ := json.Marshal(ConnectRequest{Kubeconfig: "good"})
+	req, sess := requestWithSession(body)
+	rec := httptest.NewRecorder()
+
+	h.Connect(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("expected 502, got %d", rec.Code)
+	}
+	if sess.Clientset != nil {
+		t.Error("expected clientset to not be stored when the dynamic client fails to build")
+	}
+}
+
 func TestDisconnect_ClearsSession(t *testing.T) {
-	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyOK}
-	sess := &session.Session{ID: "s1", Authenticated: true, Clientset: fake.NewSimpleClientset(), ClusterInfo: &session.ClusterInfo{Server: "x"}}
+	h := &Handler{buildClientset: fakeBuildOK, verify: fakeVerifyOK, buildDynamic: fakeBuildDynamicOK}
+	sess := &session.Session{
+		ID:            "s1",
+		Authenticated: true,
+		Clientset:     fake.NewSimpleClientset(),
+		DynamicClient: dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()),
+		ClusterInfo:   &session.ClusterInfo{Server: "x"},
+	}
 	req := httptest.NewRequest(http.MethodDelete, "/api/connection", nil)
 	req = req.WithContext(session.NewContext(req.Context(), sess))
 	rec := httptest.NewRecorder()
@@ -94,7 +128,7 @@ func TestDisconnect_ClearsSession(t *testing.T) {
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d", rec.Code)
 	}
-	if sess.Clientset != nil || sess.ClusterInfo != nil {
+	if sess.Clientset != nil || sess.DynamicClient != nil || sess.ClusterInfo != nil {
 		t.Fatal("expected session to be cleared")
 	}
 }

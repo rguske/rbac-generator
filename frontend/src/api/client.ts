@@ -64,6 +64,14 @@ export function getServiceAccounts(namespace: string): Promise<string[]> {
   return request(`/api/namespaces/${encodeURIComponent(namespace)}/serviceaccounts`);
 }
 
+export function getUsers(): Promise<string[]> {
+  return request('/api/users');
+}
+
+export function getGroups(): Promise<string[]> {
+  return request('/api/groups');
+}
+
 export function dryRun(kind: Kind, resource: RbacResource): Promise<unknown> {
   return request(`/api/rbac/${kind}/dry-run`, { method: 'POST', body: JSON.stringify(resource) });
 }
