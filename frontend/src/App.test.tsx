@@ -97,7 +97,7 @@ describe('App', () => {
     render(<App />);
     await waitFor(() => screen.getByText('RBAC-Generator'));
     expect(screen.getByText('Build and apply Kubernetes RBAC resources.')).toBeInTheDocument();
-    expect(screen.getByText('v1.0')).toBeInTheDocument();
+    expect(screen.getByText('v1.1')).toBeInTheDocument();
   });
 
   it('shows a GitHub link in the masthead pointing at the repo', async () => {

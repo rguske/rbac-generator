@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: rbac-generator
-          image: quay.io/rguske/rbac-generator:v1.0
+          image: quay.io/rguske/rbac-generator:v1.1
           # The tag above is a mutable version, not an immutable digest, so
           # a node that already pulled it once will otherwise keep using
           # its stale local copy even after the tag is updated on the

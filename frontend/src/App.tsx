@@ -30,7 +30,7 @@ import type { ClusterInfo, Kind, RbacResource } from './types/rbac';
 type View = 'connection' | 'create' | 'browse' | 'templates';
 type Theme = 'light' | 'dark';
 
-const APP_VERSION = 'v1.0';
+const APP_VERSION = 'v1.1';
 const GITHUB_REPO_URL = 'https://github.com/rguske/rbac-generator';
 const THEME_STORAGE_KEY = 'rbac-generator-theme';
 const DARK_THEME_CLASS = 'pf-v6-theme-dark';

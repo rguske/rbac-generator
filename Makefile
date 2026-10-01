@@ -3,7 +3,7 @@
 # Image tag matches the app's release version (see frontend/package.json and
 # APP_VERSION in frontend/src/App.tsx). Deliberately never "latest", so a
 # running container's version is always explicit and reproducible.
-VERSION ?= v1.0
+VERSION ?= v1.1
 
 # Build for both architectures so the same tag runs correctly whether it
 # lands on an amd64 OpenShift/Kubernetes node or an arm64 one (e.g. Apple

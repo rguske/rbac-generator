@@ -111,7 +111,7 @@ cd frontend && npm test   # frontend (Vitest)
 
 Pre-built images for each release are published at
 [quay.io/rguske/rbac-generator](https://quay.io/repository/rguske/rbac-generator)
-(currently `quay.io/rguske/rbac-generator:v1.0`). Most users can skip this
+(currently `quay.io/rguske/rbac-generator:v1.1`). Most users can skip this
 section and pull that directly (see "Running the container" below).
 
 - `registry.access.redhat.com/ubi9/nodejs-22` — builds the frontend.
@@ -129,12 +129,12 @@ images, swap each `FROM` line to the equivalent `registry.redhat.io/ubi9/...` im
 Build your own image only if you're customizing the app:
 
 ```bash
-make image                # builds rbac-generator:v1.0 for linux/amd64 + linux/arm64
-make push                 # pushes that manifest to quay.io/rguske/rbac-generator:v1.0
+make image                # builds rbac-generator:v1.1 for linux/amd64 + linux/arm64
+make push                 # pushes that manifest to quay.io/rguske/rbac-generator:v1.1
 make image VERSION=v1.2.3 # or override the tag explicitly for a new release
 ```
 
-This builds `rbac-generator:v1.0` using a multi-stage `Containerfile` where
+This builds `rbac-generator:v1.1` using a multi-stage `Containerfile` where
 every stage is a Red Hat UBI9 image. The image tag always matches the app's
 release version (`frontend/package.json` and the version badge in the
 masthead). `latest` is never used, so a running container's version is
@@ -151,7 +151,7 @@ architecture, so building on an Apple Silicon Mac (arm64) and pushing that
 straight to a typically-amd64 OpenShift/Kubernetes cluster fails at runtime
 with `exec container process ...: Exec format error`. The node can't
 execute an arm64 binary. Building both architectures into one tag means the
-same `quay.io/rguske/rbac-generator:v1.0` works everywhere.
+same `quay.io/rguske/rbac-generator:v1.1` works everywhere.
 
 ## Running the container
 
@@ -175,11 +175,11 @@ See [Authentication](#authentication) above for what `APP_USERNAME` /
 podman run --rm -p 8080:8080 \
   -e APP_USERNAME=admin \
   -e APP_PASSWORD_HASH="$(make hash-password PASSWORD=yourpassword)" \
-  quay.io/rguske/rbac-generator:v1.0
+  quay.io/rguske/rbac-generator:v1.1
 ```
 
 If you built your own image locally instead of pulling the published one,
-swap in `rbac-generator:v1.0`.
+swap in `rbac-generator:v1.1`.
 
 Then open http://localhost:8080 and log in with `admin` / `yourpassword`
 (or whatever username/password you generated the hash for).
@@ -187,7 +187,7 @@ Then open http://localhost:8080 and log in with `admin` / `yourpassword`
 ## Deploying to OpenShift/Kubernetes
 
 Base manifests live under `deploy/kustomize/base/` (Deployment, Service, Route).
-The Deployment references the published `quay.io/rguske/rbac-generator:v1.0`
+The Deployment references the published `quay.io/rguske/rbac-generator:v1.1`
 image, so no build/push step is required. Swap the `image:` field in
 `deploy/kustomize/base/deployment.yaml` if you're running your own build
 instead. On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
@@ -207,6 +207,39 @@ instead. On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
   to be exposed directly to the public internet without an additional
   reverse-proxy/auth layer.
 - **Browse is read-only** - v1 does not support editing or deleting existing RBAC resources.
+
+## Changelog
+
+### v1.1
+
+- **Namespace discovery (closes [#2](https://github.com/rguske/rbac-generator/issues/2)):**
+  the Namespace field on the Create, Templates, and Browse pages is now a
+  searchable dropdown populated from the live cluster's real namespaces
+  instead of a free-text box, while still letting you type a custom value
+  (e.g. a namespace that doesn't exist yet) if you need to.
+- **Fixed `subresources.kubevirt.io` (and any other empty-GVK API group) not
+  appearing in discovery (closes [#1](https://github.com/rguske/rbac-generator/issues/1)):**
+  client-go's aggregated discovery silently drops every resource in an API
+  group whose server reports an empty GroupVersionKind, which is how
+  KubeVirt's `subresources.kubevirt.io` group is designed. Discovery now
+  falls back to legacy, per-GroupVersion discovery for any group+version
+  that aggregated discovery reports as empty, recovering those resources.
+- Added a **Storage-Admin** persona template on the Templates page.
+- Fixed a `podman build --platform ... --manifest <name>` footgun where
+  rebuilding an image appended to an existing local manifest list instead of
+  replacing stale per-platform entries, which could cause a cluster to keep
+  running old code after a "successful" rebuild/push. `make image` now
+  removes any existing local manifest before rebuilding.
+- Fixed a QEMU segfault when cross-building the `linux/amd64` image on
+  Apple Silicon (arm64) hosts.
+
+### v1.0
+
+- Initial release: guided Role/ClusterRole/RoleBinding/ClusterRoleBinding
+  builder with a persistent Form ⇄ YAML split-pane view, live cluster
+  connection via kubeconfig, API discovery-backed rule builder, Templates
+  page with starter personas, read-only Browse view, PatternFly6 UI with
+  light/dark mode, and a single-image Containerfile built on Red Hat UBI9.
 
 ## Design & implementation history
 
