@@ -186,7 +186,7 @@ export function App() {
           initialResource={createPrefill?.resource}
         />
       )}
-      {view === 'templates' && <TemplatesPage onUseTemplate={handleUseTemplate} />}
+      {view === 'templates' && <TemplatesPage connected={Boolean(clusterInfo)} onUseTemplate={handleUseTemplate} />}
       {view === 'browse' && <BrowsePage connected={Boolean(clusterInfo)} />}
     </Page>
   );
