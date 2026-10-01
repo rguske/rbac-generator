@@ -19,11 +19,14 @@ with a server-side dry-run, apply resources directly, and browse existing ones r
   invalid YAML.
 - **Templates**: one-click persona starting points (Cluster-Admin,
   Cluster-Viewer, VirtualMachine-Admin, VirtualMachine-Viewer,
-  Platform-Operator, Network-Engineer) that pre-fill the Create page as
-  either a `ClusterRole` or a namespaced `Role` — nothing is applied until you
-  review, dry-run, and confirm.
-- When connected to a cluster: live API discovery, `ServiceAccount` lookup,
-  server-side dry-run validation, and direct apply.
+  Platform-Operator, Network-Engineer, Storage-Admin) that pre-fill the
+  Create page as either a `ClusterRole` or a namespaced `Role` — nothing is
+  applied until you review, dry-run, and confirm.
+- When connected to a cluster: live API discovery, and searchable dropdowns
+  (with manual entry always still available) for real `Namespaces`,
+  `ServiceAccounts`, and — on OpenShift — `User`/`Group` subjects for
+  `RoleBinding`/`ClusterRoleBinding`, plus server-side dry-run validation
+  and direct apply.
 - Read-only browse view for existing `Roles`/`ClusterRoles`/`RoleBindings`/`ClusterRoleBindings`,
   with one-click copy of the resource's YAML.
 - Light/dark mode toggle, with the YAML editor's theme following it.
@@ -212,6 +215,9 @@ instead. On vanilla Kubernetes (no Route CRD), remove `route.yaml` from
 
 ### v1.1
 
+- RoleBinding/ClusterRoleBinding `User` and `Group` subjects now have a
+  searchable dropdown of real OpenShift users/groups, with custom values
+  still allowed (closes [#3](https://github.com/rguske/rbac-generator/issues/3)).
 - Namespace fields on Create, Templates, and Browse are now searchable
   dropdowns of real cluster namespaces, with custom values still allowed
   (closes [#2](https://github.com/rguske/rbac-generator/issues/2)).
